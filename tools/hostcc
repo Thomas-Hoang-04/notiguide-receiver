@@ -1,0 +1,23 @@
+#!/bin/sh
+
+set -eu
+
+needs_lintl=0
+
+if cc -dumpmachine 2>/dev/null | grep -q 'musl'; then
+    if [ -e /usr/lib/libintl.so ] || [ -e /usr/lib/libintl.a ]; then
+        needs_lintl=1
+    fi
+fi
+
+if [ "$needs_lintl" -eq 1 ]; then
+    for arg in "$@"; do
+        if [ "$arg" = "-lintl" ]; then
+            exec cc "$@"
+        fi
+    done
+
+    exec cc "$@" -lintl
+fi
+
+exec cc "$@"

@@ -1,0 +1,31 @@
+{
+  "name": "ESP8266 Dev Container",
+  "image": "thomashoang04/thomas-esp:esp8266",
+  "customizations": {
+		"vscode": {
+			"settings": {
+				"terminal.integrated.defaultProfile.linux": "bash",
+				"idf.gitPath": "/usr/bin/git"
+			},
+			"extensions": [
+				"anthropic.claude-code",
+				"openai.chatgpt"
+			]
+		},
+		"jetbrains": {
+			"plugins": [
+				"com.github.davidseptimus.armada",
+				"com.github.davidseptimus.armada-syntax-highlighter",
+				"com.intellij.ml.llm",
+				"com.github.camork.fileExpander"
+			]
+		}
+	},
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/${localWorkspaceFolderBasename},type=bind",
+  "remoteUser": "tom",
+  "containerUser": "tom",
+  "updateRemoteUserUID": true,
+  "postCreateCommand": "/usr/local/bin/init-project.sh ${containerWorkspaceFolder}",
+  "runArgs": ["--privileged", "--name", "notiguide-8266"]
+}
