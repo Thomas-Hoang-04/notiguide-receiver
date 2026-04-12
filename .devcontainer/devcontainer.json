@@ -1,0 +1,30 @@
+{
+	"name": "Notiguide ESP Dev Container",
+	"image": "thomashoang04/thomas-esp:idf-v6",
+	"customizations": {
+		"vscode": {
+			"settings": {
+				"terminal.integrated.defaultProfile.linux": "bash",
+				"idf.gitPath": "/usr/bin/git"
+			},
+			"extensions": [
+				"espressif.esp-idf-extension",
+				"espressif.esp-idf-web",
+				"anthropic.claude-code",
+				"openai.chatgpt"
+			]
+		},
+		"jetbrains": {
+			"plugins": [
+				"com.github.davidseptimus.armada",
+				"com.github.davidseptimus.armada-syntax-highlighter",
+				"com.intellij.ml.llm",
+				"com.github.camork.fileExpander"
+			],
+			"settings": {
+			}
+		}
+	},
+	"shutdownAction": "stopContainer",
+	"runArgs": ["--privileged", "--name", "notiguide-32"]
+}
