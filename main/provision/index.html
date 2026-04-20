@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Receiver Setup</title>
+    <style>
+        :root {
+            --fg: #111;
+            --fg-dim: #555;
+            --err: #c1272d;
+            --ok: #1f6f3a;
+            --glass: rgba(255, 255, 255, .55);
+            --border: rgba(255, 255, 255, .7);
+            --shadow: 0 10px 40px rgba(0, 0, 0, .25)
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        html,
+        body {
+            margin: 0;
+            height: 100%;
+            font: 15px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro", "Segoe UI", Roboto, system-ui, sans-serif;
+            color: var(--fg)
+        }
+
+        body {
+            min-height: 100%;
+            background: radial-gradient(at 20% 10%, #a7c7ff 0%, transparent 55%), radial-gradient(at 85% 20%, #ffb4d1 0%, transparent 50%), radial-gradient(at 60% 90%, #b8f1cf 0%, transparent 60%), linear-gradient(135deg, #e9edf3, #f5ecf7);
+            background-attachment: fixed;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px
+        }
+
+        .card {
+            width: 100%;
+            max-width: 420px;
+            padding: 24px 22px;
+            border-radius: 22px;
+            background: var(--glass);
+            -webkit-backdrop-filter: blur(22px) saturate(160%);
+            backdrop-filter: blur(22px) saturate(160%);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, .75)
+        }
+
+        @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
+            .card {
+                background: rgba(255, 255, 255, .92)
+            }
+        }
+
+        h1 {
+            margin: 0 0 4px;
+            font-size: 20px;
+            font-weight: 600
+        }
+
+        .meta {
+            font-size: 12px;
+            color: var(--fg-dim);
+            margin-bottom: 18px
+        }
+
+        .meta code {
+            background: rgba(0, 0, 0, .06);
+            padding: 1px 6px;
+            border-radius: 6px
+        }
+
+        label {
+            display: block;
+            font-size: 12px;
+            color: var(--fg-dim);
+            margin: 12px 0 4px
+        }
+
+        .row {
+            position: relative
+        }
+
+        input {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(0, 0, 0, .12);
+            background: rgba(255, 255, 255, .7);
+            font: inherit;
+            color: inherit;
+            outline: none;
+            transition: border-color .15s, background .15s
+        }
+
+        input:focus {
+            border-color: #3a86ff;
+            background: rgba(255, 255, 255, .92)
+        }
+
+        .toggle {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            border: 0;
+            background: transparent;
+            font-size: 12px;
+            color: var(--fg-dim);
+            cursor: pointer;
+            padding: 6px 8px;
+            border-radius: 8px;
+            line-height: 1
+        }
+
+        .toggle:hover {
+            background: rgba(0, 0, 0, .05)
+        }
+
+        button.submit {
+            margin-top: 18px;
+            width: 100%;
+            padding: 12px;
+            border-radius: 14px;
+            border: 0;
+            background: linear-gradient(180deg, #3a86ff, #2563eb);
+            color: #fff;
+            font-weight: 600;
+            font-size: 15px;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(37, 99, 235, .35)
+        }
+
+        button.submit:disabled {
+            opacity: .55;
+            cursor: not-allowed
+        }
+
+        .status {
+            margin-top: 14px;
+            font-size: 13px;
+            min-height: 1.4em
+        }
+
+        .status.ok {
+            color: var(--ok)
+        }
+
+        .status.err {
+            color: var(--err)
+        }
+
+        .mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            letter-spacing: .02em
+        }
+
+        .recovery {
+            display: none;
+            margin-top: 16px;
+            padding-top: 14px;
+            border-top: 1px solid rgba(0, 0, 0, .08)
+        }
+
+        .recovery.show {
+            display: block
+        }
+
+        .recovery h2 {
+            margin: 0 0 8px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--fg-dim);
+            text-transform: uppercase;
+            letter-spacing: .08em
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px
+        }
+
+        button.secondary {
+            flex: 1;
+            padding: 10px;
+            border-radius: 12px;
+            border: 1px solid rgba(0, 0, 0, .12);
+            background: rgba(255, 255, 255, .6);
+            font: inherit;
+            color: var(--fg);
+            cursor: pointer
+        }
+
+        button.secondary:hover {
+            background: rgba(255, 255, 255, .85)
+        }
+
+        button.danger {
+            color: var(--err);
+            border-color: rgba(193, 39, 45, .35)
+        }
+
+        button.secondary:disabled {
+            opacity: .55;
+            cursor: not-allowed
+        }
+    </style>
+</head>
+
+<body>
+    <form class="card" id="f" autocomplete="off">
+        <h1>Receiver Setup</h1>
+        <div class="meta">
+            <div>MAC <code id="mac">loading…</code> · Public ID <code id="pid">—</code></div>
+            <div>Firmware <code id="fw">—</code> · State <code id="st">—</code></div>
+        </div>
+        <label for="ssid">Wi-Fi SSID</label>
+        <div class="row"><input id="ssid" maxlength="32" required></div>
+        <label for="wpw">Wi-Fi password</label>
+        <div class="row"><input id="wpw" type="password" maxlength="63" required><button type="button" class="toggle"
+                data-for="wpw">Show</button></div>
+        <label for="uri">MQTT broker URI</label>
+        <div class="row"><input id="uri" class="mono" required pattern="mqtts://.+"
+                placeholder="mqtts://broker.example.com:8883" title="Must start with mqtts://"></div>
+        <label for="mu">MQTT username</label>
+        <div class="row"><input id="mu" required></div>
+        <label for="mp">MQTT password</label>
+        <div class="row"><input id="mp" type="password" required><button type="button" class="toggle"
+                data-for="mp">Show</button></div>
+        <label for="tok">Enrollment token</label>
+        <div class="row"><input id="tok" class="mono" minlength="8" maxlength="128" required autocapitalize="off"
+                autocomplete="off" spellcheck="false"></div>
+        <button type="submit" class="submit" id="go">Provision</button>
+        <div class="status" id="s"></div>
+        <div class="recovery" id="recov">
+            <h2>Existing configuration</h2>
+            <div class="meta" id="ssidLine">Current SSID: <code id="curSsid">—</code></div>
+            <div class="actions">
+                <button type="button" class="secondary" id="retry" hidden>Retry connection</button>
+                <button type="button" class="secondary danger" id="reset">Factory reset</button>
+            </div>
+        </div>
+    </form>
+    <script>
+        (function () { var $ = function (id) { return document.getElementById(id) }, set = function (msg, cls) { var s = $('s'); s.textContent = msg; s.className = 'status ' + (cls || '') }, busy = function (on) { $('go').disabled = on; $('retry').disabled = on; $('reset').disabled = on }; fetch('/api/status').then(function (r) { return r.json() }).then(function (j) { $('mac').textContent = j.mac_label || '?'; $('pid').textContent = j.public_id || '—'; $('fw').textContent = j.firmware_version || '?'; $('st').textContent = j.op_state || 'UNPROVISIONED'; if (j.has_config) { $('recov').classList.add('show') } if (j.wifi_ssid) { $('curSsid').textContent = j.wifi_ssid; $('retry').hidden = false } else { $('ssidLine').style.display = 'none' } }).catch(function () { }); document.querySelectorAll('.toggle').forEach(function (b) { b.addEventListener('click', function () { var i = $(b.dataset.for), p = i.type === 'password'; i.type = p ? 'text' : 'password'; b.textContent = p ? 'Hide' : 'Show' }) }); $('f').addEventListener('submit', function (e) { e.preventDefault(); if (!$('f').reportValidity()) return; busy(true); set('Saving…'); fetch('/api/provision', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ schema_version: 1, wifi: { ssid: $('ssid').value, password: $('wpw').value }, mqtt: { broker_uri: $('uri').value, username: $('mu').value, password: $('mp').value }, enrollment: { token: $('tok').value } }) }).then(function (r) { return r.ok ? r.json() : r.json().then(function (j) { throw new Error(j.error || 'Provision failed') }) }).then(function () { set('Device restarting…', 'ok') }).catch(function (e) { busy(false); set(e.message || 'Network error', 'err') }) }); $('retry').addEventListener('click', function () { busy(true); set('Retrying…'); fetch('/api/retry', { method: 'POST' }).then(function () { set('Device restarting…', 'ok') }).catch(function () { busy(false); set('Network error', 'err') }) }); $('reset').addEventListener('click', function () { if (!confirm('Erase the stored configuration and reboot?')) return; busy(true); set('Resetting…'); fetch('/api/reset', { method: 'POST' }).then(function () { set('Device restarting…', 'ok') }).catch(function () { busy(false); set('Network error', 'err') }) }) })();
+    </script>
+</body>
+
+</html>

@@ -1,3 +1,8 @@
 build/
 sdkconfig
 sdkconfig.old
+.codex
+.gitnexus
+.claude/
+.cache/
+compile_commands.json

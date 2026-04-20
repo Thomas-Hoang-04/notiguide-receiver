@@ -1,0 +1,51 @@
+CompileFlags:
+  Add:
+    - --target=xtensa-lx106-elf
+    - -ferror-limit=0
+    # esp-clangd's resource-dir (/opt/esp/esp-clangd/lib/clang/21/include) ships
+    # empty, so supply freestanding headers (stddef.h, stdbool.h, ...) from xtensa-gcc.
+    - -isystem/opt/esp/xtensa-lx106-elf/lib/gcc/xtensa-lx106-elf/8.4.0/include
+    - -isystem/opt/esp/xtensa-lx106-elf/lib/gcc/xtensa-lx106-elf/8.4.0/include-fixed
+  Remove:
+    # GCC flags clangd doesn't understand
+    - -mlongcalls
+    - -ffunction-sections
+    - -fdata-sections
+    - -fstrict-volatile-bitfields
+
+Diagnostics:
+  UnusedIncludes: Strict
+  Includes:
+    # Skip unused-include checks for SDK umbrella/transitive headers — they
+    # trip clangd's IWYU heuristic constantly. User-code includes still get checked.
+    IgnoreHeader:
+      - "esp_.*\\.h"
+      - "esp-.*\\.h"
+      - "driver/.*"
+      - "freertos/.*"
+      - "soc/.*"
+      - "hal/.*"
+      - "rom/.*"
+      - "lwip/.*"
+      - "mbedtls/.*"
+      - "sys/.*"
+      - "sdkconfig\\.h"
+      - "nvs.*\\.h"
+      - "mqtt_client\\.h"
+      - "tcpip_adapter\\.h"
+      - "http_parser\\.h"
+      - "cJSON\\.h"
+  Suppress:
+    - -Wno-gnu-zero-variadic-macro-arguments
+
+InlayHints:
+  Enabled: Yes
+  ParameterNames: Yes
+  DeducedTypes: Yes
+
+---
+# Treat ESP-IDF SDK headers as system headers (suppresses their warnings)
+If:
+  PathMatch: /opt/esp/.*
+CompileFlags:
+  Add: [-w]

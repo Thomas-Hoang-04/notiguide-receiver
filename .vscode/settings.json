@@ -1,0 +1,14 @@
+{
+  "clangd.arguments": [
+    "--query-driver=/opt/esp/xtensa-lx106-elf/bin/xtensa-lx106-elf-*",
+    "--compile-commands-dir=${workspaceFolder}",
+    "--background-index",
+    "--clang-tidy",
+    "--header-insertion=never"
+  ],
+  "clangd.path": "clangd",
+  "[c]": {
+    "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd"
+  },
+  "C_Cpp.intelliSenseEngine": "disabled"
+}

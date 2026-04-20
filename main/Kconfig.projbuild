@@ -1,0 +1,40 @@
+menu "Receiver Configuration"
+
+config RECEIVER_WIFI_MAX_RETRY
+    int "Wi-Fi STA maximum retry"
+    default 5
+    help
+        Number of reconnect attempts before falling back to SoftAP
+        provisioning mode.
+
+config RECEIVER_AP_PASSWORD
+    string "SoftAP provisioning password"
+    default "receiver-setup"
+    help
+        WPA2-PSK password for the provisioning SoftAP. Must be 8-63 chars.
+        ESP8266 hardware does not support WPA3 in AP mode, so WPA2-PSK is
+        the strongest option here.
+
+config RECEIVER_AP_CHANNEL
+    int "SoftAP channel"
+    range 1 13
+    default 1
+    help
+        Wi-Fi channel used by the provisioning SoftAP.
+
+config RECEIVER_BACKEND_PUBKEY_B64
+    string "Backend command-signing public key (base64-DER EC P-256)"
+    default ""
+    help
+        Base64-encoded DER-form EC P-256 public key used to verify
+        every cmd/* payload (see RECEIVER_DESIGN_GUIDE.md §3.7).
+        Generate the keypair externally:
+          openssl ecparam -name prime256v1 -genkey -noout \
+            -out cmd_signing_priv.pem
+          openssl pkey -in cmd_signing_priv.pem -pubout -outform DER \
+            | base64 -w0
+        Paste the single-line base64 output here. Leaving this empty
+        boots the firmware but every cmd/* will be rejected
+        with status=rejected at verification time.
+
+endmenu
