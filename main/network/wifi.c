@@ -176,7 +176,7 @@ esp_err_t wifi_start_sta(const char *ssid, const char *password)
 
     snprintf((char *)wifi_cfg.sta.ssid, sizeof(wifi_cfg.sta.ssid), "%s", ssid);
     snprintf((char *)wifi_cfg.sta.password, sizeof(wifi_cfg.sta.password), "%s", password);
-    wifi_cfg.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
+    wifi_cfg.sta.scan_method = WIFI_FAST_SCAN;
     wifi_cfg.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
     wifi_cfg.sta.threshold.rssi = -127;
     wifi_cfg.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;

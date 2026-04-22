@@ -160,7 +160,9 @@ esp_err_t mqtt_start(const device_config_t *cfg,
     xEventGroupClearBits(s_mqtt_events, MQTT_CONNECTED_BIT);
 
     mqtt_cfg.uri = cfg->mqtt_uri;
-    mqtt_cfg.client_id = cfg->has_public_id ? cfg->public_id : NULL;
+    if (cfg->has_public_id) {
+        mqtt_cfg.client_id = cfg->public_id;
+    }
     mqtt_cfg.username = cfg->mqtt_user;
     mqtt_cfg.password = cfg->mqtt_pwd;
     mqtt_cfg.transport = MQTT_TRANSPORT_OVER_SSL;

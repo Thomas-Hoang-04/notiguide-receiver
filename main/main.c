@@ -561,6 +561,21 @@ static void on_mqtt_message(const char *topic, const char *payload, int payload_
     cJSON_Delete(root);
 }
 
+/* ESP-MQTT only applies client_id during init, so activation requires a new session. */
+static esp_err_t restart_mqtt_with_public_id(const device_config_t *cfg)
+{
+    if (!cfg || !cfg->has_public_id || !cfg->public_id) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    ESP_LOGI(TAG, "Restarting MQTT session with public_id");
+    if (mqtt_stop() != ESP_OK) {
+        return ESP_FAIL;
+    }
+
+    return mqtt_start(cfg, on_mqtt_message, NULL);
+}
+
 static esp_err_t bootstrap_activate(device_config_t *cfg)
 {
     EventBits_t bits;
@@ -677,6 +692,11 @@ void app_main(void)
         device_config_free(&cfg);
         device_config_init(&cfg);
         ESP_ERROR_CHECK(device_config_load(&cfg));
+
+        if (restart_mqtt_with_public_id(&cfg) != ESP_OK) {
+            device_config_free(&cfg);
+            run_softap_recovery();
+        }
     }
 
     ESP_ERROR_CHECK(ensure_operational_subscription(cfg.public_id));

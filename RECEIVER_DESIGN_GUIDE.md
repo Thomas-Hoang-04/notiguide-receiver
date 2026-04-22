@@ -45,6 +45,7 @@ boot ─► load NVS ─► wifi config missing?
                                            set op_state=PENDING_RF_CODE
                                                │
                                                ▼
+                                     restart MQTT with client_id=public_id ─►
                                      subscribe receiver/device/{public_id}/cmd/# ─►
                                      first cmd/rf_code ─► store ─► op_state=ACTIVE
 ```
@@ -171,8 +172,9 @@ distinguish `rf_code` from `deact`.
 MQTT 3.1.1 has no no-local flag, both sides must drop their own
 echoed envelope types. The device starts on `receiver/bootstrap/+`,
 filters on `registration_nonce`, then narrows to the exact
-`receiver/bootstrap/{challenge_id}` topic. After activation it
-unsubscribes from bootstrap and stays on `receiver/device/{public_id}/cmd/#`.
+`receiver/bootstrap/{challenge_id}` topic. After activation it drops
+the bootstrap session, reconnects with `client_id = public_id`, and
+stays on `receiver/device/{public_id}/cmd/#`.
 
 ### 3.2 Security
 
@@ -324,8 +326,9 @@ is unavailable) and **must** drop any incoming envelope where
 
 `status` is always `"active"` here; earlier lifecycle outcomes use
 their own envelope types on the same topic. The device persists
-`public_id`, keeps its provisioned MQTT credential (§15), and waits for
-the first retained `cmd/rf_code` on the new operational topic.
+`public_id`, keeps its provisioned MQTT credential (§15), restarts the
+MQTT client so `client_id` becomes `public_id`, and then waits for the
+first retained `cmd/rf_code` on the new operational topic.
 
 **RF code (`receiver/device/{public_id}/cmd/rf_code`, retained):**
 
@@ -632,16 +635,19 @@ wires them at startup.
        on "result": store public_id + device_name,
          erase enroll_token, set op_state=PENDING_RF_CODE
          (MQTT creds are unchanged — provisioning creds stay in use)
-8. esp_wifi_set_ps(WIFI_PS_MIN_MODEM)  [after STA association]
-9. unsubscribe receiver/bootstrap/*;
-   subscribe receiver/device/{public_id}/cmd/#
-10. dispatch on op_state:
+8. restart MQTT  [stop + destroy + init/start so client_id changes
+   from the broker-assigned bootstrap session to `public_id`; do this
+   outside the MQTT event handler]
+9. esp_wifi_set_ps(WIFI_PS_MIN_MODEM)  [after STA association]
+10. subscribe receiver/device/{public_id}/cmd/# on the restarted
+    session
+11. dispatch on op_state:
       PENDING_RF_CODE → wait for first cmd/rf_code; that handler
                         validates, starts RF, persists ACTIVE, then acks
       ACTIVE          → rf_sup_start()  // trigger state already restored
       SUSPENDED       → keep RF task stopped; wait for signed resume
       DECOMMISSIONED  → (do nothing; stay on MQTT for reprovision)
-11. idle loop
+12. idle loop
 ```
 
 ### 6. Flow Cases
@@ -1009,10 +1015,10 @@ void mqtt_start(const device_config_t *cfg) {
         .uri        = cfg->mqtt_uri,       // "mqtts://..."
         .username   = cfg->mqtt_user,
         .password   = cfg->mqtt_pwd,
-        // client_id: before activation, pass NULL (broker auto-assigns);
-        // after activation, use cfg->public_id so the broker has a
-        // stable handle per device. Credential is the same shared one
-        // in both phases — there is no per-device MQTT account (§15).
+        // client_id is fixed at client init: bootstrap starts with NULL
+        // (broker auto-assigns), then activation persists public_id and
+        // forces a stop/destroy/init/start so cfg->public_id becomes the
+        // operational client_id. Credential stays shared in both phases.
         .client_id  = cfg->public_id,
         .cert_pem   = (const char *)ca_pem_start,
         .cert_len   = ca_pem_end - ca_pem_start,
@@ -1787,9 +1793,10 @@ Retained-message backing storage should be encrypted in both v1 and v2.
     the same `receiver/bootstrap/{challenge_id}` topic. No MQTT
     credential is issued.
 11. Device stores `public_id` + `device_name`, erases `enroll_token`,
-  sets `op_state=PENDING_RF_CODE`, enables `WIFI_PS_MIN_MODEM`,
-    and subscribes `receiver/device/rcv-7Q4KZ/cmd/#` on the same MQTT
-    session (no reconnect — creds are unchanged).
+  sets `op_state=PENDING_RF_CODE`, stops + destroys the bootstrap MQTT
+  client, re-inits + starts MQTT with `client_id="rcv-7Q4KZ"`, enables
+    `WIFI_PS_MIN_MODEM`, and subscribes
+    `receiver/device/rcv-7Q4KZ/cmd/#` on the restarted session.
 12. Backend builds canonical `rf-code-v1|rcv-7Q4KZ|1|0A1B2C3D|24|...`,
   signs it with the backend command-signing private key, and publishes
     `{rf_code_hex:"0A1B2C3D", bits:24, version:1, signature_b64}`
