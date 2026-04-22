@@ -1,5 +1,12 @@
 {
-  "C_Cpp.intelliSenseEngine": "default",
+  "C_Cpp.intelliSenseEngine": "disabled",
+  "clangd.arguments": [
+    "--background-index",
+    "--clang-tidy",
+    "--header-insertion=never",
+    "--compile-commands-dir=${workspaceFolder}/build",
+    "--query-driver=/opt/esp/tools/**/bin/*-elf-gcc*"
+  ],
   "idf.openOcdConfigs": [
     "board/esp32c3-builtin.cfg"
   ],

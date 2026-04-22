@@ -11,7 +11,8 @@
 				"espressif.esp-idf-extension",
 				"espressif.esp-idf-web",
 				"anthropic.claude-code",
-				"openai.chatgpt"
+				"openai.chatgpt",
+				"llvm-vs-code-extensions.vscode-clangd"
 			]
 		},
 		"jetbrains": {

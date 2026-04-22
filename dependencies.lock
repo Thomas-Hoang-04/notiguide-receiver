@@ -1,21 +1,39 @@
 dependencies:
+  espressif/cjson:
+    component_hash: e788323270d90738662d66fffa910bfe1fba019bba087f01557e70c40485b469
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.7.19~2
+  espressif/mqtt:
+    component_hash: ffdad5659706b4dc14bc63f8eb73ef765efa015bf7e9adf71c813d52a2dc9342
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.3'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.0.0
   idf:
     source:
       type: idf
     version: 6.0.0
   jgromes/radiolib:
-    component_hash: 3baedfa4c97b2f9d97c8066f587ff425585f670bb22e8f039202a23924e94de7
-    dependencies:
-    - name: idf
-      require: private
-      version: '>=4.1'
+    dependencies: []
     source:
-      registry_url: https://components.espressif.com/
-      type: service
+      path: components/jgromes__radiolib
+      type: local
     version: 7.6.0
 direct_dependencies:
+- espressif/cjson
+- espressif/mqtt
 - idf
 - jgromes/radiolib
-manifest_hash: d661cd31d6657f7c5185c4be644be491e7cc999edab0eb2aefe60fbf122257cb
+manifest_hash: 09fe2a217bc6e8d42dc277f20ed017914032a2154817907900dc6491e4ee805e
 target: esp32c3
 version: 3.0.0
