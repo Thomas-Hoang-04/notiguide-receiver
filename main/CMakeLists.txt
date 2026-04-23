@@ -4,6 +4,7 @@ idf_component_register(
          "network/wifi.c"
          "network/mqtt.c"
          "provision/http_server.c"
+         "provision/recovery.c"
          "rf/rf_data.c"
          "rf/rf_receiver.c"
          "security/device_identity.c"

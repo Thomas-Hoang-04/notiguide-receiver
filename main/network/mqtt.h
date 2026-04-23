@@ -2,8 +2,8 @@
  * @file mqtt.h
  * @brief MQTT Module - Secure Messaging Interface
  *
- * Declares the TLS-backed MQTT client APIs used for bootstrap activation,
- * operational command subscriptions, and upstream acknowledgements.
+ * Declares the TLS-backed MQTT transport APIs plus the receiver-specific
+ * bootstrap and command helpers built on top of that transport.
  */
 
 #ifndef MQTT_H
@@ -14,6 +14,7 @@
 #include "esp_err.h"
 
 #include "config/device_config.h"
+#include "security/device_identity.h"
 
 #define MQTT_TAG "MQTT"
 
@@ -36,5 +37,10 @@ esp_err_t mqtt_publish(const char *topic,
                        const char *payload,
                        int qos,
                        int retain);
+esp_err_t mqtt_receiver_init(device_identity_t *identity, const char *firmware_version);
+esp_err_t mqtt_receiver_start(const device_config_t *cfg);
+esp_err_t mqtt_receiver_restart_with_public_id(const device_config_t *cfg);
+esp_err_t mqtt_receiver_subscribe_commands(const char *public_id);
+esp_err_t mqtt_receiver_bootstrap_activate(const device_config_t *cfg);
 
 #endif

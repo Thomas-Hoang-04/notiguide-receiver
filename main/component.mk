@@ -4,6 +4,7 @@ COMPONENT_OBJS := main.o \
     network/wifi.o \
     network/mqtt.o \
     provision/http_server.o \
+    provision/recovery.o \
     rf/rf_data.o \
     rf/rf_receiver.o \
     security/device_identity.o \
