@@ -1,0 +1,132 @@
+menu "Receiver Firmware"
+
+choice RECEIVER_RADIO_VARIANT
+    prompt "Active radio"
+    default RECEIVER_RADIO_433M
+
+config RECEIVER_RADIO_433M
+    bool "433 MHz ASK/OOK receiver"
+
+config RECEIVER_RADIO_2_4G
+    bool "nRF24L01 / nRF24L01+ 2.4 GHz"
+
+endchoice
+
+config RECEIVER_RF433_RX_GPIO
+    int "433 MHz RX GPIO"
+    default 4
+    depends on RECEIVER_RADIO_433M
+
+config RECEIVER_NRF24_SCK
+    int "nRF24 SCK GPIO"
+    default 6
+    depends on RECEIVER_RADIO_2_4G
+
+config RECEIVER_NRF24_MOSI
+    int "nRF24 MOSI GPIO"
+    default 7
+    depends on RECEIVER_RADIO_2_4G
+
+config RECEIVER_NRF24_MISO
+    int "nRF24 MISO GPIO"
+    default 2
+    depends on RECEIVER_RADIO_2_4G
+
+config RECEIVER_NRF24_CS
+    int "nRF24 CS GPIO"
+    default 5
+    depends on RECEIVER_RADIO_2_4G
+
+config RECEIVER_NRF24_CE
+    int "nRF24 CE GPIO"
+    default 3
+    depends on RECEIVER_RADIO_2_4G
+
+config RECEIVER_NRF24_IRQ
+    int "nRF24 IRQ GPIO"
+    default 1
+    depends on RECEIVER_RADIO_2_4G
+
+config RECEIVER_NRF24_CHANNEL
+    int "nRF24 RF channel (97..125 -> 2497..2525 MHz; keep above Wi-Fi band)"
+    default 100
+    range 97 125
+    depends on RECEIVER_RADIO_2_4G
+
+choice RECEIVER_NRF24_DATA_RATE
+    prompt "nRF24 air data rate"
+    default RECEIVER_NRF24_DR_1M
+    depends on RECEIVER_RADIO_2_4G
+
+config RECEIVER_NRF24_DR_1M
+    bool "1 Mbps"
+
+config RECEIVER_NRF24_DR_2M
+    bool "2 Mbps"
+
+endchoice
+
+config RECEIVER_NRF24_ENABLE_DPL
+    bool "Enable Dynamic Payload Length"
+    default y
+    depends on RECEIVER_RADIO_2_4G
+
+config RECEIVER_NRF24_RX_ADDR_B0
+    hex "nRF24 RX addr byte 0 (LSByte on wire)"
+    default 0xE7
+    depends on RECEIVER_RADIO_2_4G
+
+config RECEIVER_NRF24_RX_ADDR_B1
+    hex "nRF24 RX addr byte 1"
+    default 0xE7
+    depends on RECEIVER_RADIO_2_4G
+
+config RECEIVER_NRF24_RX_ADDR_B2
+    hex "nRF24 RX addr byte 2"
+    default 0xE7
+    depends on RECEIVER_RADIO_2_4G
+
+config RECEIVER_NRF24_RX_ADDR_B3
+    hex "nRF24 RX addr byte 3"
+    default 0xE7
+    depends on RECEIVER_RADIO_2_4G
+
+config RECEIVER_NRF24_RX_ADDR_B4
+    hex "nRF24 RX addr byte 4 (MSByte on wire)"
+    default 0xE7
+    depends on RECEIVER_RADIO_2_4G
+
+config RECEIVER_VIBRATOR_GPIO
+    int "Vibrator GPIO"
+    default 10
+
+config RECEIVER_AP_CHANNEL
+    int "SoftAP channel"
+    default 1
+
+config RECEIVER_AP_PASSWORD
+    string "SoftAP password"
+    default "setup1234"
+
+config RECEIVER_WIFI_MAX_RETRY
+    int "STA max retries before SoftAP fallback"
+    default 6
+
+config RECEIVER_BOOTSTRAP_TIMEOUT_MS
+    int "Bootstrap timeout in milliseconds"
+    default 120000
+
+config RECEIVER_BACKEND_PUBKEY_B64
+    string "Backend command-signing public key (base64-DER EC P-256)"
+    default ""
+    help
+        Base64-encoded DER-form EC P-256 public key used to verify all
+        backend-signed cmd/* payloads.
+        Generate a matching backend keypair with:
+          openssl ecparam -name prime256v1 -genkey -noout -out cmd_signing_priv.pem
+          openssl pkey -in cmd_signing_priv.pem -pubout -outform DER | base64 -w0
+        Paste the second command's output directly into this setting.
+        Keep cmd_signing_priv.pem out of source control. Leaving this
+        empty causes device identity initialization to fail at boot.
+
+endmenu

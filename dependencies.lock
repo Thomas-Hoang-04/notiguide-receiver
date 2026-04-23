@@ -23,17 +23,10 @@ dependencies:
     source:
       type: idf
     version: 6.0.0
-  jgromes/radiolib:
-    dependencies: []
-    source:
-      path: components/jgromes__radiolib
-      type: local
-    version: 7.6.0
 direct_dependencies:
 - espressif/cjson
 - espressif/mqtt
 - idf
-- jgromes/radiolib
-manifest_hash: 09fe2a217bc6e8d42dc277f20ed017914032a2154817907900dc6491e4ee805e
+manifest_hash: 44aabc0baf532fbf15f65d7fb77d579d7b0a823f4d263fed0436d45db48ec2f7
 target: esp32c3
 version: 3.0.0

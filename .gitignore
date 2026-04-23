@@ -83,3 +83,4 @@ Desktop.ini
 
 # NRF24L01 datasheet
 nrf24/
+!main/nrf24/

@@ -7,11 +7,14 @@
  * and decodes received data into binary and tri-state formats.
  */
 
+#include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 #include "rf_common.h"
 #include "esp_check.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "trigger/rf_trigger.h"
 
 static inline uint32_t diff(uint32_t a, uint32_t b) {
     return (a > b) ? (a - b) : (b - a);
@@ -56,10 +59,25 @@ static bool IRAM_ATTR recv_proto(RFHandler* rf_rmt, uint8_t proto_idx, uint32_t 
         rf_rmt->recv_bit_length = (edge_count - 1) / 2;
         rf_rmt->recv_delay = delay;
         rf_rmt->recv_proto = proto_idx;
+        rf_rmt->recv_pending = true;
         return true;
     }
 
     return false;
+}
+
+static void IRAM_ATTR rf_recv_notify_task(RFHandler *rf_rmt)
+{
+    TaskHandle_t task = rf_rmt->rf_recv_handle;
+    if (task == NULL) {
+        return;
+    }
+
+    BaseType_t higher_priority_woken = pdFALSE;
+    vTaskNotifyGiveFromISR(task, &higher_priority_woken);
+    if (higher_priority_woken == pdTRUE) {
+        portYIELD_FROM_ISR();
+    }
 }
 
 static void IRAM_ATTR rf_recv_isr_handler(void* arg) {
@@ -85,8 +103,12 @@ static void IRAM_ATTR rf_recv_isr_handler(void* arg) {
             repeat_count++;
             if (repeat_count == 2) {
                 // Try to decode using all available protocols
-                for (uint8_t i = 0; i < PROTO_COUNT; i++)
-                    if (recv_proto(rf_rmt, i, edge_count)) break;
+                for (uint8_t i = 0; i < PROTO_COUNT; i++) {
+                    if (recv_proto(rf_rmt, i, edge_count)) {
+                        rf_recv_notify_task(rf_rmt);
+                        break;
+                    }
+                }
                 repeat_count = 0;
             }
         }
@@ -111,6 +133,7 @@ esp_err_t rf_recv_init(gpio_num_t rx_gpio, RFHandler* rf_rmt) {
     rf_rmt->rx_active = false;
     rf_rmt->rx_suspended = false;
     rf_rmt->rx_gpio = GPIO_NUM_NC;
+    rf_rmt->rf_recv_handle = NULL;
 
     // Configure GPIO for input with pull-up and edge interrupts
     gpio_config_t io_conf_rx = {
@@ -142,6 +165,7 @@ esp_err_t rf_recv_init(gpio_num_t rx_gpio, RFHandler* rf_rmt) {
     rf_rmt->recv_bit_length = 0;
     rf_rmt->recv_delay = 0;
     rf_rmt->recv_proto = 0;
+    rf_rmt->recv_pending = false;
     rf_rmt->separation_limit = SEPARATION_LIMIT;
     rf_rmt->recv_tolerance = RECV_TOLERANCE;
 
@@ -175,8 +199,10 @@ esp_err_t rf_recv_deinit(RFHandler* rf_rmt) {
     rf_rmt->rx_active = false;
     rf_rmt->rx_suspended = false;
 
-    // Delete receiver task
-    vTaskDelete(rf_rmt->rf_recv_handle);
+    if (rf_rmt->rf_recv_handle) {
+        vTaskDelete(rf_rmt->rf_recv_handle);
+        rf_rmt->rf_recv_handle = NULL;
+    }
 
     ESP_LOGI(RF_TAG, "RF receiver deinitialized");
     return ESP_OK;
@@ -231,20 +257,48 @@ esp_err_t rf_recv_resume(RFHandler* rf_rmt) {
     return ESP_OK;
 }
 
-esp_err_t recv_available(RFHandler* rf_rmt) {
-    ESP_RETURN_ON_FALSE(rf_rmt, ESP_ERR_INVALID_ARG, RF_TAG, "Invalid RF module");
-    ESP_RETURN_ON_FALSE(rf_rmt->rx_active && rf_rmt->rx_gpio != GPIO_NUM_NC, ESP_ERR_INVALID_STATE, RF_TAG, "RF receiver is not active");
-    ESP_RETURN_ON_FALSE(!rf_rmt->rx_suspended, ESP_ERR_INVALID_STATE, RF_TAG, "RF receiver is suspended");
-
-    return (rf_rmt->recv_value != 0) ? ESP_OK : ESP_ERR_NOT_FOUND;
-}
-
 esp_err_t reset_recv(RFHandler* rf_rmt) {
     ESP_RETURN_ON_FALSE(rf_rmt, ESP_ERR_INVALID_ARG, RF_TAG, "Invalid RF module");
     ESP_RETURN_ON_FALSE(rf_rmt->rx_active && rf_rmt->rx_gpio != GPIO_NUM_NC, ESP_ERR_INVALID_STATE, RF_TAG, "RF receiver is not active");
     ESP_RETURN_ON_FALSE(!rf_rmt->rx_suspended, ESP_ERR_INVALID_STATE, RF_TAG, "RF receiver is suspended");
 
     rf_rmt->recv_value = 0;
+    rf_rmt->recv_bit_length = 0;
+    rf_rmt->recv_pending = false;
+    return ESP_OK;
+}
+
+static void rf_recv_task(void* arg) {
+    RFHandler* rf_rmt = (RFHandler*)arg;
+    RFRecvData recv_data = { 0 };
+
+    for (;;) {
+        if (!rf_rmt->recv_pending) {
+            ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        }
+
+        if (rf_rmt->recv_pending) {
+            if (output_recv(rf_rmt, &recv_data) == ESP_OK) {
+                rf_trigger_on_frame(recv_data.original_value, rf_rmt->recv_bit_length);
+            }
+            reset_recv(rf_rmt);
+        }
+    }
+}
+
+esp_err_t rf_recv_start_task(gpio_num_t rx_gpio, RFHandler* rf_rmt) {
+    ESP_RETURN_ON_FALSE(rf_rmt, ESP_ERR_INVALID_ARG, RF_TAG, "Invalid RF module");
+
+    if (rf_rmt->rx_active) {
+        return ESP_OK;
+    }
+
+    ESP_RETURN_ON_ERROR(rf_recv_init(rx_gpio, rf_rmt), RF_TAG, "rf_recv_init failed");
+    if (xTaskCreate(rf_recv_task, "rf_rx", 4096, rf_rmt, 5, &rf_rmt->rf_recv_handle) != pdPASS) {
+        rf_recv_deinit(rf_rmt);
+        return ESP_ERR_NO_MEM;
+    }
+
     return ESP_OK;
 }
 
