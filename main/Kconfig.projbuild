@@ -48,10 +48,16 @@ config RECEIVER_NRF24_IRQ
     depends on RECEIVER_RADIO_2_4G
 
 config RECEIVER_NRF24_CHANNEL
-    int "nRF24 RF channel (97..125 -> 2497..2525 MHz; keep above Wi-Fi band)"
+    int "nRF24 RF channel"
     default 100
     range 97 125
     depends on RECEIVER_RADIO_2_4G
+    help
+        nRF24 RF channel: f = 2400 MHz + N. Must match the transmitter.
+        Lower bound 97 keeps the center >= 2497 MHz, above JP Wi-Fi
+        channel 14's upper edge (2495 MHz) with >= 1 MHz guard at
+        2 Mbps. Upper bound 125 (2525 MHz) is the silicon limit. Verify local
+        ISM rules before deployment.
 
 choice RECEIVER_NRF24_DATA_RATE
     prompt "nRF24 air data rate"
