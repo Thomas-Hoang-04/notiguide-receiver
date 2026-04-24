@@ -7,10 +7,14 @@
  * and decodes received data into binary and tri-state formats.
  */
 
-#include <stdint.h>
-#include <string.h>
-#include <stdlib.h>
 #include "rf_common.h"
+#include "sdkconfig.h"
+
+#if CONFIG_RECEIVER_RADIO_433M
+
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
 #include "esp_check.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -364,3 +368,45 @@ esp_err_t output_recv(RFHandler* rf_rmt, RFRecvData* recv_data) {
     ESP_LOGI(RF_TAG, "Pulse length: %lu", rf_rmt->recv_delay);
     return ESP_OK;
 }
+
+#else
+
+esp_err_t rf_recv_init(gpio_num_t rx_gpio, RFHandler* rf_rmt) {
+    (void)rx_gpio;
+    (void)rf_rmt;
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+esp_err_t rf_recv_deinit(RFHandler* rf_rmt) {
+    (void)rf_rmt;
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+esp_err_t rf_recv_suspend(RFHandler* rf_rmt) {
+    (void)rf_rmt;
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+esp_err_t rf_recv_resume(RFHandler* rf_rmt) {
+    (void)rf_rmt;
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+esp_err_t rf_recv_start_task(gpio_num_t rx_gpio, RFHandler* rf_rmt) {
+    (void)rx_gpio;
+    (void)rf_rmt;
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+esp_err_t reset_recv(RFHandler* rf_rmt) {
+    (void)rf_rmt;
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+esp_err_t output_recv(RFHandler* rf_rmt, RFRecvData* recv_data) {
+    (void)rf_rmt;
+    (void)recv_data;
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+#endif

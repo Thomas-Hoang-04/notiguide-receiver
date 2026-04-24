@@ -3,10 +3,14 @@
  * @brief RF protocol table and receiver-side conversion helpers.
  */
 
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
 #include "rf_common.h"
+#include "sdkconfig.h"
+#include <stdint.h>
+
+#if CONFIG_RECEIVER_RADIO_433M
+
+#include <stdlib.h>
+#include <string.h>
 #include "esp_log.h"
 
 const DRAM_ATTR Protocol proto[] = {
@@ -107,3 +111,21 @@ esp_err_t uint32_to_tristate(uint32_t raw_code, char** tristate_code, uint8_t bi
 
     return ESP_OK;
 }
+
+#else
+
+esp_err_t uint32_to_binary(uint32_t raw_code, char** binary_code, uint8_t bit_length) {
+    (void)raw_code;
+    (void)binary_code;
+    (void)bit_length;
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+esp_err_t uint32_to_tristate(uint32_t raw_code, char** tristate_code, uint8_t bit_length) {
+    (void)raw_code;
+    (void)tristate_code;
+    (void)bit_length;
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+#endif
