@@ -12,7 +12,8 @@
 				"espressif.esp-idf-web",
 				"anthropic.claude-code",
 				"openai.chatgpt",
-				"llvm-vs-code-extensions.vscode-clangd"
+				"llvm-vs-code-extensions.vscode-clangd",
+				"ms-vscode.cmake-tools"
 			]
 		},
 		"jetbrains": {
