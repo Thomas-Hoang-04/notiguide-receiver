@@ -4,7 +4,10 @@
  */
 
 #include "trigger/rf_supervisor.h"
+#include "config/device_config.h"
 #include "sdkconfig.h"
+#include <stddef.h>
+#include <stdint.h>
 
 #if CONFIG_RECEIVER_RADIO_433M
 #include "rf/rf_common.h"
@@ -17,7 +20,7 @@ static nrf24_handle_t s_nrf;
 static bool s_started;
 static bool s_suspended;
 
-esp_err_t rf_sup_start(void)
+esp_err_t rf_sup_start(const device_config_t *cfg)
 {
     if (s_started && !s_suspended) {
         return ESP_OK;
@@ -27,15 +30,37 @@ esp_err_t rf_sup_start(void)
     }
 
 #if CONFIG_RECEIVER_RADIO_433M
+    (void)cfg;
     esp_err_t err = rf_recv_start_task((gpio_num_t)CONFIG_RECEIVER_RF433_RX_GPIO, &s_rf);
 #else
-    esp_err_t err = nrf24_recv_start_task(&s_nrf);
+    if (cfg == NULL || !device_config_has_rf_code(cfg) || cfg->rf_code_len != 5U ||
+        cfg->rf_code_bits != 40U) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t err = nrf24_recv_start_task(&s_nrf, cfg->rf_code);
 #endif
     if (err == ESP_OK) {
         s_started = true;
         s_suspended = false;
     }
     return err;
+}
+
+esp_err_t rf_sup_apply_rx_address(const uint8_t *addr, size_t addr_len)
+{
+#if CONFIG_RECEIVER_RADIO_433M
+    (void)addr;
+    (void)addr_len;
+    return ESP_OK;
+#else
+    if (addr == NULL || addr_len != 5U) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!s_started) {
+        return ESP_OK;
+    }
+    return nrf24_recv_set_rx_address(&s_nrf, addr);
+#endif
 }
 
 esp_err_t rf_sup_suspend(void)

@@ -77,30 +77,6 @@ config RECEIVER_NRF24_ENABLE_DPL
     default y
     depends on RECEIVER_RADIO_2_4G
 
-config RECEIVER_NRF24_RX_ADDR_B0
-    hex "nRF24 RX addr byte 0 (LSByte on wire)"
-    default 0xE7
-    depends on RECEIVER_RADIO_2_4G
-
-config RECEIVER_NRF24_RX_ADDR_B1
-    hex "nRF24 RX addr byte 1"
-    default 0xE7
-    depends on RECEIVER_RADIO_2_4G
-
-config RECEIVER_NRF24_RX_ADDR_B2
-    hex "nRF24 RX addr byte 2"
-    default 0xE7
-    depends on RECEIVER_RADIO_2_4G
-
-config RECEIVER_NRF24_RX_ADDR_B3
-    hex "nRF24 RX addr byte 3"
-    default 0xE7
-    depends on RECEIVER_RADIO_2_4G
-
-config RECEIVER_NRF24_RX_ADDR_B4
-    hex "nRF24 RX addr byte 4 (MSByte on wire)"
-    default 0xE7
-    depends on RECEIVER_RADIO_2_4G
 
 config RECEIVER_VIBRATOR_GPIO
     int "Vibrator GPIO"

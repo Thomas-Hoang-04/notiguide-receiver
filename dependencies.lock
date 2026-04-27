@@ -27,6 +27,6 @@ direct_dependencies:
 - espressif/cjson
 - espressif/mqtt
 - idf
-manifest_hash: 44aabc0baf532fbf15f65d7fb77d579d7b0a823f4d263fed0436d45db48ec2f7
+manifest_hash: 4ca9754d344736119214bbc229ec7b167f4157e2e9cdde7c36a1f2d172ba59da
 target: esp32c3
 version: 3.0.0

@@ -253,14 +253,7 @@ static esp_err_t nrf_bringup(nrf24_handle_t *handle)
     nrf_wreg8(NRF_REG_RX_PW_P1, NRF_PAYLOAD_WIDTH);
 #endif
 
-    const uint8_t address[5] = {
-        CONFIG_RECEIVER_NRF24_RX_ADDR_B0,
-        CONFIG_RECEIVER_NRF24_RX_ADDR_B1,
-        CONFIG_RECEIVER_NRF24_RX_ADDR_B2,
-        CONFIG_RECEIVER_NRF24_RX_ADDR_B3,
-        CONFIG_RECEIVER_NRF24_RX_ADDR_B4,
-    };
-    (void)nrf_wreg(NRF_REG_RX_ADDR_P1, address, sizeof(address));
+    (void)nrf_wreg(NRF_REG_RX_ADDR_P1, handle->rx_addr, 5U);
 
     (void)nrf_cmd(NRF_CMD_FLUSH_RX);
     (void)nrf_cmd(NRF_CMD_FLUSH_TX);
@@ -305,12 +298,14 @@ static void nrf_cleanup_partial(nrf24_handle_t *handle)
     s_notify_to = NULL;
 }
 
-esp_err_t nrf24_recv_start_task(nrf24_handle_t *handle)
+esp_err_t nrf24_recv_start_task(nrf24_handle_t *handle, const uint8_t addr[5])
 {
     ESP_RETURN_ON_FALSE(handle != NULL, ESP_ERR_INVALID_ARG, NRF24_TAG, "handle is NULL");
+    ESP_RETURN_ON_FALSE(addr != NULL, ESP_ERR_INVALID_ARG, NRF24_TAG, "addr is NULL");
     if (handle->rx_active) {
         return ESP_OK;
     }
+    memcpy(handle->rx_addr, addr, 5U);
 
     spi_bus_config_t bus_cfg = {
         .mosi_io_num = CONFIG_RECEIVER_NRF24_MOSI,
@@ -410,6 +405,31 @@ esp_err_t nrf24_recv_resume(nrf24_handle_t *handle)
     return ESP_OK;
 }
 
+esp_err_t nrf24_recv_set_rx_address(nrf24_handle_t *handle, const uint8_t addr[5])
+{
+    ESP_RETURN_ON_FALSE(handle != NULL, ESP_ERR_INVALID_ARG, NRF24_TAG, "handle is NULL");
+    ESP_RETURN_ON_FALSE(addr != NULL, ESP_ERR_INVALID_ARG, NRF24_TAG, "addr is NULL");
+
+    if (!handle->rx_active) {
+        memcpy(handle->rx_addr, addr, 5U);
+        return ESP_OK;
+    }
+
+    bool restore_active = !handle->rx_suspended;
+    if (restore_active) {
+        ESP_RETURN_ON_ERROR(nrf24_recv_suspend(handle), NRF24_TAG, "failed to suspend receiver");
+    }
+
+    (void)nrf_wreg(NRF_REG_RX_ADDR_P1, addr, 5U);
+    memcpy(handle->rx_addr, addr, 5U);
+
+    if (restore_active) {
+        ESP_RETURN_ON_ERROR(nrf24_recv_resume(handle), NRF24_TAG, "failed to resume receiver");
+    }
+
+    return ESP_OK;
+}
+
 esp_err_t nrf24_recv_deinit(nrf24_handle_t *handle)
 {
     ESP_RETURN_ON_FALSE(handle != NULL, ESP_ERR_INVALID_ARG, NRF24_TAG, "handle is NULL");
@@ -440,9 +460,17 @@ esp_err_t nrf24_recv_deinit(nrf24_handle_t *handle)
 
 #else
 
-esp_err_t nrf24_recv_start_task(nrf24_handle_t *handle)
+esp_err_t nrf24_recv_start_task(nrf24_handle_t *handle, const uint8_t addr[5])
 {
     (void)handle;
+    (void)addr;
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+esp_err_t nrf24_recv_set_rx_address(nrf24_handle_t *handle, const uint8_t addr[5])
+{
+    (void)handle;
+    (void)addr;
     return ESP_ERR_NOT_SUPPORTED;
 }
 

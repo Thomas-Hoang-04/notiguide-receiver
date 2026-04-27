@@ -150,15 +150,11 @@ void rf_trigger_on_frame(uint32_t value, uint8_t value_bits)
 
 void rf_trigger_on_packet(const uint8_t *pkt, size_t pkt_len)
 {
-    rf_trigger_state_t state = { 0 };
-    if (pkt == NULL || !copy_state(&state) || !state.initialized || state.bits == 0) {
+    if (pkt == NULL || pkt_len < 2U) {
         return;
     }
-    if ((state.bits % 8U) != 0 || pkt_len < state.code_len) {
+    if (pkt[0] != RF_TRIGGER_TOGGLE_MAGIC_HI || pkt[1] != RF_TRIGGER_TOGGLE_MAGIC_LO) {
         return;
     }
-
-    if (memcmp(pkt, state.code, state.code_len) == 0) {
-        vibrator_toggle_pulsing(&s_vibrator);
-    }
+    vibrator_toggle_pulsing(&s_vibrator);
 }

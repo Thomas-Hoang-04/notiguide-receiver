@@ -84,7 +84,7 @@ static void dispatch_operational_state(void)
         break;
     case OP_STATE_ACTIVE:
         if (device_config_has_rf_code(&g_cfg)) {
-            ESP_ERROR_CHECK(rf_sup_start());
+            ESP_ERROR_CHECK(rf_sup_start(&g_cfg));
         } else {
             ESP_LOGW(APP_TAG, "ACTIVE without stored RF code, remaining idle");
         }

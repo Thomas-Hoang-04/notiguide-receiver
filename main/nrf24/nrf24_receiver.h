@@ -7,6 +7,7 @@
 #define NRF24_RECEIVER_H
 
 #include <stdbool.h>
+#include <stdint.h>
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -23,15 +24,26 @@ typedef struct {
     TaskHandle_t task;
     void *spi;
     nrf24_variant_t chip;
+    uint8_t rx_addr[5];
 } nrf24_handle_t;
 
 /**
  * @brief Initialize the nRF24 SPI/IRQ path and start the RX task.
  *
  * @param handle Receiver state structure
+ * @param addr 5-byte RX_ADDR_P1 (LSByte first on the wire)
  * @return ESP_OK on success, error code otherwise
  */
-esp_err_t nrf24_recv_start_task(nrf24_handle_t *handle);
+esp_err_t nrf24_recv_start_task(nrf24_handle_t *handle, const uint8_t addr[5]);
+
+/**
+ * @brief Apply a new RX_ADDR_P1 address to a running receiver.
+ *
+ * @param handle Receiver state structure
+ * @param addr 5-byte address (LSByte first)
+ * @return ESP_OK on success, error code otherwise
+ */
+esp_err_t nrf24_recv_set_rx_address(nrf24_handle_t *handle, const uint8_t addr[5]);
 
 /**
  * @brief Suspend the nRF24 receiver and mask IRQ delivery.

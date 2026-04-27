@@ -13,6 +13,10 @@
 #include "esp_err.h"
 #include "config/device_config.h"
 
+/* Magic bytes the hub sends in every 2.4G dispatch payload. */
+#define RF_TRIGGER_TOGGLE_MAGIC_HI 0xAAU
+#define RF_TRIGGER_TOGGLE_MAGIC_LO 0x55U
+
 /**
  * @brief Initialize the shared trigger matcher and vibrator output.
  *

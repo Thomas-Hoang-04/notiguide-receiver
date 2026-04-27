@@ -580,8 +580,7 @@ static void mqtt_handle_rf_code(const char *payload)
         size_t expected_len = ((size_t)rf_code_bits + 7U) / 8U;
         width_ok = rf_code_bits >= 1U && rf_code_bits <= 32U && expected_len == code_len;
     } else {
-        width_ok = rf_code_bits >= 8U && rf_code_bits <= 256U &&
-                   (rf_code_bits % 8U) == 0U && code_len == ((size_t)rf_code_bits / 8U);
+        width_ok = rf_code_bits == 40U && code_len == 5U;
     }
     if (!width_ok) {
         mqtt_publish_rf_ack("rejected", code_version);
@@ -611,26 +610,60 @@ static void mqtt_handle_rf_code(const char *payload)
 
     bool first_code = !device_config_has_rf_code(s_mqtt.cfg);
     bool promote_active = first_code && s_mqtt.cfg->op_state == OP_STATE_PENDING_RF_CODE;
-    bool started_receiver = false;
 
     if (promote_active) {
-        if (rf_sup_start() != ESP_OK) {
+        uint8_t previous_code[DEVICE_CONFIG_MAX_RF_CODE_LEN];
+        memcpy(previous_code, s_mqtt.cfg->rf_code, sizeof(previous_code));
+        size_t previous_code_len = s_mqtt.cfg->rf_code_len;
+        uint8_t previous_code_bits = s_mqtt.cfg->rf_code_bits;
+        uint32_t previous_code_ver = s_mqtt.cfg->rf_code_ver;
+        bool previous_has_rf_code = s_mqtt.cfg->has_rf_code;
+
+        memset(s_mqtt.cfg->rf_code, 0, sizeof(s_mqtt.cfg->rf_code));
+        memcpy(s_mqtt.cfg->rf_code, code, code_len);
+        s_mqtt.cfg->rf_code_len = code_len;
+        s_mqtt.cfg->rf_code_bits = (uint8_t)rf_code_bits;
+        s_mqtt.cfg->rf_code_ver = code_version;
+        s_mqtt.cfg->has_rf_code = true;
+
+        if (rf_sup_start(s_mqtt.cfg) != ESP_OK) {
+            memcpy(s_mqtt.cfg->rf_code, previous_code, sizeof(s_mqtt.cfg->rf_code));
+            s_mqtt.cfg->rf_code_len = previous_code_len;
+            s_mqtt.cfg->rf_code_bits = previous_code_bits;
+            s_mqtt.cfg->rf_code_ver = previous_code_ver;
+            s_mqtt.cfg->has_rf_code = previous_has_rf_code;
             mqtt_publish_rf_ack("rejected", code_version);
             cJSON_Delete(json);
             return;
         }
-        started_receiver = true;
+
+        if (device_config_commit_rf_code(s_mqtt.cfg, code, code_len, (uint8_t)rf_code_bits,
+                                         code_version, true) != ESP_OK) {
+            rf_sup_delete();
+            memcpy(s_mqtt.cfg->rf_code, previous_code, sizeof(s_mqtt.cfg->rf_code));
+            s_mqtt.cfg->rf_code_len = previous_code_len;
+            s_mqtt.cfg->rf_code_bits = previous_code_bits;
+            s_mqtt.cfg->rf_code_ver = previous_code_ver;
+            s_mqtt.cfg->has_rf_code = previous_has_rf_code;
+            mqtt_publish_rf_ack("rejected", code_version);
+            cJSON_Delete(json);
+            return;
+        }
+    } else {
+        if (device_config_commit_rf_code(s_mqtt.cfg, code, code_len, (uint8_t)rf_code_bits,
+                                         code_version, false) != ESP_OK) {
+            mqtt_publish_rf_ack("rejected", code_version);
+            cJSON_Delete(json);
+            return;
+        }
+
+        if (rf_sup_apply_rx_address(code, code_len) != ESP_OK) {
+            mqtt_publish_rf_ack("rejected", code_version);
+            cJSON_Delete(json);
+            return;
+        }
     }
 
-    if (device_config_commit_rf_code(s_mqtt.cfg, code, code_len, (uint8_t)rf_code_bits,
-                                     code_version, promote_active) != ESP_OK) {
-        if (started_receiver) {
-            rf_sup_delete();
-        }
-        mqtt_publish_rf_ack("rejected", code_version);
-        cJSON_Delete(json);
-        return;
-    }
     rf_trigger_set(code, code_len, (uint8_t)rf_code_bits, code_version);
     mqtt_publish_rf_ack("applied", code_version);
     cJSON_Delete(json);
@@ -703,7 +736,7 @@ static void mqtt_handle_deact(const char *payload)
             if (rf_sup_is_started()) {
                 err = rf_sup_is_suspended() ? rf_sup_resume() : ESP_OK;
             } else {
-                err = rf_sup_start();
+                err = rf_sup_start(s_mqtt.cfg);
             }
             target_state = OP_STATE_ACTIVE;
         } else if (rf_sup_is_started()) {
