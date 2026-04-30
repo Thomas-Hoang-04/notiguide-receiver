@@ -24,6 +24,8 @@
 #include "trigger/rf_trigger.h"
 
 #define MQTT_CONNECTED_BIT BIT0
+#define MQTT_FAILED_BIT BIT1
+#define MQTT_CONNECT_TIMEOUT_MS (45 * 1000)
 
 #define BOOTSTRAP_TIMEOUT_MS (15 * 60 * 1000)
 #define BOOTSTRAP_PENDING_BIT BIT0
@@ -594,13 +596,18 @@ static void mqtt_event_handler(void *args, esp_event_base_t base, int32_t id, vo
     case MQTT_EVENT_CONNECTED:
         ESP_LOGI(MQTT_TAG, "MQTT connected");
         if (s_mqtt_events) {
+            xEventGroupClearBits(s_mqtt_events, MQTT_FAILED_BIT);
             xEventGroupSetBits(s_mqtt_events, MQTT_CONNECTED_BIT);
         }
         break;
     case MQTT_EVENT_DISCONNECTED:
         ESP_LOGW(MQTT_TAG, "MQTT disconnected");
         if (s_mqtt_events) {
+            EventBits_t bits = xEventGroupGetBits(s_mqtt_events);
             xEventGroupClearBits(s_mqtt_events, MQTT_CONNECTED_BIT);
+            if ((bits & MQTT_CONNECTED_BIT) == 0) {
+                xEventGroupSetBits(s_mqtt_events, MQTT_FAILED_BIT);
+            }
         }
         mqtt_reset_rx_buffer();
         break;
@@ -640,6 +647,12 @@ static void mqtt_event_handler(void *args, esp_event_base_t base, int32_t id, vo
                      event->error_handle->esp_tls_stack_err,
                      event->error_handle->connect_return_code);
         }
+        if (s_mqtt_events) {
+            EventBits_t bits = xEventGroupGetBits(s_mqtt_events);
+            if ((bits & MQTT_CONNECTED_BIT) == 0) {
+                xEventGroupSetBits(s_mqtt_events, MQTT_FAILED_BIT);
+            }
+        }
         break;
     default:
         break;
@@ -674,7 +687,7 @@ esp_err_t mqtt_start(const device_config_t *cfg,
             return ESP_ERR_NO_MEM;
         }
     }
-    xEventGroupClearBits(s_mqtt_events, MQTT_CONNECTED_BIT);
+    xEventGroupClearBits(s_mqtt_events, MQTT_CONNECTED_BIT | MQTT_FAILED_BIT);
 
     mqtt_cfg.uri = cfg->mqtt_uri;
     if (cfg->has_public_id) {
@@ -707,8 +720,19 @@ esp_err_t mqtt_start(const device_config_t *cfg,
         return ESP_FAIL;
     }
 
-    xEventGroupWaitBits(s_mqtt_events, MQTT_CONNECTED_BIT, pdFALSE, pdFALSE, portMAX_DELAY);
-    return ESP_OK;
+    {
+        EventBits_t bits = xEventGroupWaitBits(s_mqtt_events,
+                                               MQTT_CONNECTED_BIT | MQTT_FAILED_BIT,
+                                               pdFALSE,
+                                               pdFALSE,
+                                               pdMS_TO_TICKS(MQTT_CONNECT_TIMEOUT_MS));
+        if ((bits & MQTT_CONNECTED_BIT) != 0) {
+            return ESP_OK;
+        }
+
+        mqtt_stop();
+        return (bits & MQTT_FAILED_BIT) != 0 ? ESP_FAIL : ESP_ERR_TIMEOUT;
+    }
 }
 
 esp_err_t mqtt_stop(void)
@@ -725,7 +749,7 @@ esp_err_t mqtt_stop(void)
     s_message_callback = NULL;
     s_message_ctx = NULL;
     if (s_mqtt_events) {
-        xEventGroupClearBits(s_mqtt_events, MQTT_CONNECTED_BIT);
+        xEventGroupClearBits(s_mqtt_events, MQTT_CONNECTED_BIT | MQTT_FAILED_BIT);
     }
     bootstrap_session_reset();
     return ESP_OK;

@@ -17,6 +17,7 @@
 
 #include "config/device_config.h"
 #include "network/wifi.h"
+#include "provision/recovery.h"
 
 #define HTTP_SERVER_TAG "HTTP"
 #ifndef PROJECT_VER
@@ -78,6 +79,8 @@ static esp_err_t status_get(httpd_req_t *req)
     device_config_t cfg;
     cJSON *body;
     char mac_label[7] = {0};
+    const char *boot_state;
+    const char *recovery_reason;
     esp_err_t err;
 
     device_config_init(&cfg);
@@ -100,6 +103,19 @@ static esp_err_t status_get(httpd_req_t *req)
     cJSON_AddStringToObject(body, "op_state", device_config_state_name(&cfg));
     cJSON_AddStringToObject(body, "wifi_ssid", cfg.has_wifi_ssid ? cfg.wifi_ssid : "");
     cJSON_AddBoolToObject(body, "has_config", device_config_has_any_data(&cfg));
+    if (!device_config_is_provisioned(&cfg)) {
+        boot_state = "UNPROVISIONED";
+    } else if (device_config_is_recovery_required(&cfg)) {
+        boot_state = "RECOVERY_REQUIRED";
+    } else if (device_config_is_pending_activation(&cfg)) {
+        boot_state = "PENDING_ACTIVATION";
+    } else {
+        boot_state = "OPERATIONAL";
+    }
+    cJSON_AddStringToObject(body, "boot_state", boot_state);
+    cJSON_AddBoolToObject(body, "can_retry", device_config_is_provisioned(&cfg));
+    recovery_reason = provision_recovery_get_active_reason();
+    cJSON_AddStringToObject(body, "recovery_reason", recovery_reason ? recovery_reason : "");
 
     err = send_json(req, 200, body);
     cJSON_Delete(body);
@@ -202,35 +218,40 @@ static esp_err_t provision_post(httpd_req_t *req)
         return send_error(req, "persist failed");
     }
 
-    if (s_events) {
+    httpd_resp_set_type(req, "application/json");
+    err = httpd_resp_send(req, "{\"status\":\"ok\"}", strlen("{\"status\":\"ok\"}"));
+    if (err == ESP_OK && s_events) {
         xEventGroupSetBits(s_events, BIT_PROVISIONED);
     }
-
-    httpd_resp_set_type(req, "application/json");
-    return httpd_resp_send(req, "{\"status\":\"ok\"}", strlen("{\"status\":\"ok\"}"));
+    return err;
 }
 
 static esp_err_t retry_post(httpd_req_t *req)
 {
-    if (s_events) {
+    esp_err_t err;
+
+    httpd_resp_set_type(req, "application/json");
+    err = httpd_resp_send(req, "{\"status\":\"retrying\"}", strlen("{\"status\":\"retrying\"}"));
+    if (err == ESP_OK && s_events) {
         xEventGroupSetBits(s_events, BIT_RETRY);
     }
-    httpd_resp_set_type(req, "application/json");
-    return httpd_resp_send(req, "{\"status\":\"retrying\"}", strlen("{\"status\":\"retrying\"}"));
+    return err;
 }
 
 static esp_err_t reset_post(httpd_req_t *req)
 {
+    esp_err_t err;
+
     if (device_config_erase_runtime() != ESP_OK) {
         return send_error(req, "reset failed");
     }
 
-    if (s_events) {
+    httpd_resp_set_type(req, "application/json");
+    err = httpd_resp_send(req, "{\"status\":\"reset\"}", strlen("{\"status\":\"reset\"}"));
+    if (err == ESP_OK && s_events) {
         xEventGroupSetBits(s_events, BIT_RESET);
     }
-
-    httpd_resp_set_type(req, "application/json");
-    return httpd_resp_send(req, "{\"status\":\"reset\"}", strlen("{\"status\":\"reset\"}"));
+    return err;
 }
 
 esp_err_t http_server_start(void)

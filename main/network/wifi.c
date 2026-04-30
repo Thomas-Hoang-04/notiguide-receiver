@@ -266,7 +266,7 @@ esp_err_t wifi_stop(void)
 
     wifi_unregister_handlers();
     err = esp_wifi_stop();
-    if (err != ESP_OK && err != ESP_ERR_WIFI_NOT_INIT) {
+    if (err != ESP_OK && err != ESP_ERR_WIFI_NOT_INIT && err != ESP_ERR_WIFI_NOT_STARTED) {
         return err;
     }
 
