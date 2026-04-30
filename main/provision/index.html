@@ -1,487 +1,635 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Receiver Setup</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  >
   <style>
     :root {
-      --bg: #eef3e9;
-      --panel: rgba(255, 255, 255, 0.88);
-      --panel-border: rgba(32, 53, 38, 0.10);
-      --text: #203526;
-      --muted: #5c715e;
-      --accent: #0b7a53;
-      --accent-strong: #07553a;
-      --danger: #9f2d20;
-      --danger-strong: #6f1d14;
-      --shadow: 0 24px 60px rgba(41, 67, 50, 0.12);
-      --radius: 20px;
-      --field-radius: 14px;
-      --font: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
+      --bg: #f8fafc;
+      --fg: #0c1324;
+      --muted: #64748b;
+      --primary: #0d9488;
+      --primary-fg: #fff;
+      --err: #e11d48;
+      --ok: #10b981;
+      --border: #e2e8f0;
+      --glass: rgba(255, 255, 255, 0.72);
+      --glass-border: rgba(255, 255, 255, 0.35);
+      --radius: 0.625rem;
     }
 
     * {
       box-sizing: border-box;
     }
 
+    html,
     body {
       margin: 0;
-      min-height: 100vh;
-      font-family: var(--font);
-      color: var(--text);
-      background:
-        radial-gradient(circle at top left, rgba(11, 122, 83, 0.18), transparent 34%),
-        radial-gradient(circle at bottom right, rgba(255, 197, 87, 0.16), transparent 28%),
-        linear-gradient(160deg, #f5f7ef 0%, #e4eee5 48%, #d6e6dc 100%);
+      height: 100%;
+      font:
+        15px/1.4 "Be Vietnam Pro",
+        system-ui,
+        -apple-system,
+        sans-serif;
+      color: var(--fg);
     }
 
-    .shell {
-      width: min(960px, calc(100% - 32px));
-      margin: 32px auto;
-      display: grid;
-      gap: 20px;
-    }
-
-    .hero, .panel {
-      background: var(--panel);
-      border: 1px solid var(--panel-border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(10px);
-    }
-
-    .hero {
-      padding: 28px;
-      display: grid;
-      gap: 10px;
-    }
-
-    .eyebrow {
-      display: inline-flex;
+    body {
+      min-height: 100%;
+      background: linear-gradient(
+        145deg,
+        #f8fafc 0%,
+        #e6f3f1 50%,
+        #f0f5f4 100%
+      );
+      background-attachment: fixed;
+      display: flex;
       align-items: center;
-      gap: 8px;
-      font-size: 0.82rem;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--accent-strong);
-    }
-
-    .eyebrow::before {
-      content: "";
-      width: 10px;
-      height: 10px;
-      border-radius: 999px;
-      background: linear-gradient(135deg, var(--accent), #7fd2a5);
-      box-shadow: 0 0 0 6px rgba(11, 122, 83, 0.08);
-    }
-
-    h1 {
-      margin: 0;
-      font-size: clamp(2rem, 5vw, 3.4rem);
-      line-height: 0.94;
-      letter-spacing: -0.04em;
-    }
-
-    .hero p {
-      margin: 0;
-      max-width: 60ch;
-      color: var(--muted);
-      font-size: 1rem;
-      line-height: 1.5;
-    }
-
-    .grid {
-      display: grid;
-      gap: 20px;
-      grid-template-columns: 1.1fr 0.9fr;
-    }
-
-    .panel {
+      justify-content: center;
       padding: 24px;
     }
 
-    .panel h2 {
-      margin: 0 0 16px;
-      font-size: 1.15rem;
-      letter-spacing: -0.02em;
+    body::before {
+      content: "";
+      position: fixed;
+      top: -30%;
+      right: -10%;
+      width: 50%;
+      height: 60%;
+      background: radial-gradient(
+        circle,
+        rgba(13, 148, 136, 0.08) 0%,
+        transparent 70%
+      );
+      pointer-events: none;
     }
 
-    .status-grid {
-      display: grid;
+    .card {
+      width: 100%;
+      max-width: 440px;
+      padding: 24px 22px;
+      border-radius: calc(var(--radius) * 2.2);
+      background: var(--glass);
+      -webkit-backdrop-filter: blur(12px) saturate(170%);
+      backdrop-filter: blur(12px) saturate(170%);
+      border: 1px solid var(--glass-border);
+      box-shadow:
+        0 8px 32px rgba(12, 19, 36, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    }
+
+    @supports not (
+      (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))
+    ) {
+      .card {
+        background: rgba(255, 255, 255, 0.92);
+      }
+    }
+
+    h1 {
+      margin: 0 0 4px;
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       gap: 12px;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .status-card {
-      padding: 14px;
-      border-radius: 16px;
-      background: rgba(230, 240, 232, 0.78);
-      border: 1px solid rgba(32, 53, 38, 0.08);
-    }
-
-    .status-label {
-      margin: 0 0 8px;
+    .lng {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 3px 8px;
+      border-radius: calc(var(--radius) * 0.8);
+      border: 1px solid var(--border);
+      background: rgba(13, 148, 136, 0.06);
       color: var(--muted);
-      font-size: 0.78rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+      cursor: pointer;
+      line-height: 1;
     }
 
-    .status-value {
-      margin: 0;
-      font-weight: 700;
-      font-size: 1rem;
-      line-height: 1.3;
-      word-break: break-word;
+    .lng:hover {
+      background: rgba(13, 148, 136, 0.14);
     }
 
-    .stack {
+    .meta {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 18px;
       display: grid;
-      gap: 18px;
+      gap: 4px;
     }
 
-    fieldset {
-      margin: 0;
-      padding: 0;
-      border: 0;
-      display: grid;
-      gap: 12px;
-    }
-
-    legend {
-      padding: 0;
-      margin-bottom: 4px;
-      font-weight: 700;
-      font-size: 0.94rem;
-      color: var(--text);
+    .meta code {
+      background: rgba(13, 148, 136, 0.06);
+      padding: 1px 6px;
+      border-radius: calc(var(--radius) * 0.6);
     }
 
     label {
-      display: grid;
-      gap: 6px;
-      font-size: 0.92rem;
+      display: block;
+      font-size: 12px;
       color: var(--muted);
+      margin: 12px 0 4px;
+    }
+
+    .row {
+      position: relative;
     }
 
     input {
       width: 100%;
-      padding: 13px 14px;
-      border-radius: var(--field-radius);
-      border: 1px solid rgba(32, 53, 38, 0.14);
-      background: rgba(255, 255, 255, 0.94);
-      color: var(--text);
+      padding: 10px 12px;
+      border-radius: calc(var(--radius) * 1.4);
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.85);
       font: inherit;
-      transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+      color: inherit;
+      outline: none;
+      transition:
+        border-color 0.15s,
+        box-shadow 0.15s;
     }
 
     input:focus {
-      outline: none;
-      border-color: rgba(11, 122, 83, 0.42);
-      box-shadow: 0 0 0 4px rgba(11, 122, 83, 0.10);
-      transform: translateY(-1px);
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+    }
+
+    .toggle {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 0;
+      background: transparent;
+      font-size: 12px;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 6px 8px;
+      border-radius: calc(var(--radius) * 0.8);
+      line-height: 1;
+    }
+
+    .toggle:hover {
+      background: rgba(13, 148, 136, 0.06);
+    }
+
+    button.submit {
+      margin-top: 18px;
+      width: 100%;
+      padding: 12px;
+      border-radius: calc(var(--radius) * 1.4);
+      border: 0;
+      background: var(--primary);
+      color: var(--primary-fg);
+      font-weight: 600;
+      font-size: 15px;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(13, 148, 136, 0.25);
+    }
+
+    button.submit:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .status {
+      margin-top: 14px;
+      font-size: 13px;
+      min-height: 1.4em;
+    }
+
+    .status.ok {
+      color: var(--ok);
+    }
+
+    .status.err {
+      color: var(--err);
+    }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      letter-spacing: 0.02em;
+    }
+
+    .recovery {
+      display: none;
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+
+    .recovery.show {
+      display: block;
+    }
+
+    .recovery h2 {
+      margin: 0 0 8px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
     }
 
     .actions {
-      display: grid;
-      gap: 12px;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      margin-top: 8px;
+      display: flex;
+      gap: 10px;
     }
 
-    button {
-      border: 0;
-      border-radius: 999px;
-      padding: 13px 16px;
+    button.secondary {
+      flex: 1;
+      padding: 10px;
+      border-radius: calc(var(--radius) * 1.4);
+      border: 1px solid var(--border);
+      background: rgba(13, 148, 136, 0.08);
       font: inherit;
-      font-weight: 700;
+      color: var(--primary);
       cursor: pointer;
-      transition: transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
     }
 
-    button:hover:not(:disabled) {
-      transform: translateY(-1px);
+    button.secondary:hover {
+      background: rgba(13, 148, 136, 0.14);
     }
 
-    button:disabled {
+    button.danger {
+      background: rgba(225, 29, 72, 0.08);
+      color: var(--err);
+      border-color: rgba(225, 29, 72, 0.2);
+    }
+
+    button.danger:hover {
+      background: rgba(225, 29, 72, 0.14);
+    }
+
+    button.secondary:disabled {
       opacity: 0.55;
-      cursor: wait;
-    }
-
-    .primary {
-      color: #fff;
-      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
-      box-shadow: 0 14px 24px rgba(11, 122, 83, 0.22);
-    }
-
-    .secondary {
-      color: var(--text);
-      background: rgba(232, 239, 233, 0.95);
-      border: 1px solid rgba(32, 53, 38, 0.1);
-    }
-
-    .danger {
-      color: #fff;
-      background: linear-gradient(135deg, var(--danger) 0%, var(--danger-strong) 100%);
-      box-shadow: 0 14px 24px rgba(159, 45, 32, 0.18);
-    }
-
-    .message {
-      min-height: 24px;
-      margin: 0;
-      font-size: 0.92rem;
-      color: var(--muted);
-    }
-
-    .message.error {
-      color: var(--danger);
-    }
-
-    .message.success {
-      color: var(--accent-strong);
-    }
-
-    .footnote {
-      margin: 0;
-      color: var(--muted);
-      font-size: 0.86rem;
-      line-height: 1.5;
-    }
-
-    @media (max-width: 820px) {
-      .grid {
-        grid-template-columns: 1fr;
-      }
-
-      .actions {
-        grid-template-columns: 1fr;
-      }
-
-      .status-grid {
-        grid-template-columns: 1fr;
-      }
+      cursor: not-allowed;
     }
   </style>
 </head>
+
 <body>
-  <main class="shell">
-    <section class="hero">
-      <div class="eyebrow">Receiver Setup</div>
-      <h1>Provision and recover the ESP32-C3 receiver.</h1>
-      <p>Use this page to load Wi-Fi credentials, broker settings, and a fresh enrollment token. Recovery actions below never touch the device identity keypair.</p>
-    </section>
-
-    <section class="grid">
-      <section class="panel">
-        <h2>Local Status</h2>
-        <div class="status-grid">
-          <article class="status-card">
-            <p class="status-label">Recovery Reason</p>
-            <p class="status-value" id="recovery-reason">Loading…</p>
-          </article>
-          <article class="status-card">
-            <p class="status-label">Boot State</p>
-            <p class="status-value" id="boot-state">Loading…</p>
-          </article>
-          <article class="status-card">
-            <p class="status-label">Compiled Receiver</p>
-            <p class="status-value" id="receiver-type">Loading…</p>
-          </article>
-          <article class="status-card">
-            <p class="status-label">SoftAP SSID</p>
-            <p class="status-value" id="softap-ssid">Loading…</p>
-          </article>
-          <article class="status-card">
-            <p class="status-label">Public ID</p>
-            <p class="status-value" id="public-id">Not assigned</p>
-          </article>
-          <article class="status-card">
-            <p class="status-label">Operational State</p>
-            <p class="status-value" id="op-state">Not assigned</p>
-          </article>
-        </div>
-      </section>
-
-      <section class="panel">
-        <h2>Provisioning</h2>
-        <form id="provision-form" class="stack">
-          <fieldset>
-            <legend>Wi-Fi</legend>
-            <label>
-              SSID
-              <input id="wifi-ssid" name="wifi-ssid" maxlength="32" autocomplete="off" required>
-            </label>
-            <label>
-              Password
-              <input id="wifi-password" name="wifi-password" type="password" maxlength="64" autocomplete="new-password" required>
-            </label>
-          </fieldset>
-
-          <fieldset>
-            <legend>MQTT Broker</legend>
-            <label>
-              Broker URI
-              <input id="mqtt-uri" name="mqtt-uri" maxlength="191" placeholder="mqtts://broker.example.com:8883" required>
-            </label>
-            <label>
-              Username
-              <input id="mqtt-user" name="mqtt-user" maxlength="64" autocomplete="off" required>
-            </label>
-            <label>
-              Password
-              <input id="mqtt-password" name="mqtt-password" type="password" maxlength="64" autocomplete="new-password" required>
-            </label>
-          </fieldset>
-
-          <fieldset>
-            <legend>Enrollment</legend>
-            <label>
-              Token
-              <input id="enrollment-token" name="enrollment-token" maxlength="128" autocomplete="off" required>
-            </label>
-          </fieldset>
-
-          <div class="actions">
-            <button class="primary" id="save-button" type="submit">Save and Reboot</button>
-            <button class="secondary" id="retry-button" type="button">Retry Current Config</button>
-            <button class="danger" id="reset-button" type="button">Factory Reset</button>
-          </div>
-
-          <p class="message" id="message" role="status" aria-live="polite"></p>
-          <p class="footnote">Save and Reboot stores the new provisioning bundle and restarts the device. Retry Current Config reboots without changing flash. Factory Reset wipes only the runtime configuration namespace.</p>
-        </form>
-      </section>
-    </section>
-  </main>
-
+  <form class="card" id="f" autocomplete="off">
+    <h1>
+      <span data-i18n="tt">Receiver Setup</span>
+      <button type="button" class="lng" id="lng">VI</button>
+    </h1>
+    <div class="meta">
+      <div>
+        <span data-i18n="ls">SoftAP</span> <code id="softap">loading…</code> ·
+        <span data-i18n="lp">Public ID</span> <code id="pid">—</code>
+      </div>
+      <div>
+        <span data-i18n="lb">Boot</span> <code id="boot">—</code> ·
+        <span data-i18n="lr">Receiver</span> <code id="rtype">—</code>
+      </div>
+      <div>
+        <span data-i18n="ly">Recovery</span> <code id="reason">—</code> ·
+        <span data-i18n="lo">State</span> <code id="op">—</code>
+      </div>
+    </div>
+    <label for="ssid" data-i18n="ss">Wi-Fi SSID</label>
+    <div class="row">
+      <input id="ssid" maxlength="64" required>
+    </div>
+    <label for="wpw" data-i18n="wp">Wi-Fi password</label>
+    <div class="row">
+      <input id="wpw" type="password" maxlength="128" required>
+      <button type="button" class="toggle" data-for="wpw">Show</button>
+    </div>
+    <label for="uri" data-i18n="bu">MQTT broker URI</label>
+    <div class="row">
+      <input
+        id="uri"
+        class="mono"
+        required
+        maxlength="191"
+        pattern="mqtts://.+"
+        placeholder="mqtts://broker.example.com:8883"
+        data-i18n-title="bt"
+        title="Must start with mqtts://"
+      >
+    </div>
+    <label for="mu" data-i18n="ml">MQTT username</label>
+    <div class="row">
+      <input id="mu" maxlength="64" required>
+    </div>
+    <label for="mp" data-i18n="mp">MQTT password</label>
+    <div class="row">
+      <input id="mp" type="password" maxlength="128" required>
+      <button type="button" class="toggle" data-for="mp">Show</button>
+    </div>
+    <label for="tok" data-i18n="tk">Enrollment token</label>
+    <div class="row">
+      <input
+        id="tok"
+        class="mono"
+        minlength="8"
+        maxlength="128"
+        required
+        autocapitalize="off"
+        autocomplete="off"
+        spellcheck="false"
+      >
+    </div>
+    <button type="submit" class="submit" id="go" data-i18n="gl">Save and Reboot</button>
+    <div class="status" id="s"></div>
+    <div class="recovery show" id="recov">
+      <h2 data-i18n="ec">Existing configuration</h2>
+      <div class="meta" id="nameLine">
+        <span data-i18n="dn">Device name:</span> <code id="dname">—</code>
+      </div>
+      <div class="actions">
+        <button type="button" class="secondary" id="retry" data-i18n="rt">Retry Current Config</button>
+        <button type="button" class="secondary danger" id="reset" data-i18n="rs">Factory Reset</button>
+      </div>
+    </div>
+  </form>
   <script>
-    const state = { busy: false, retryAllowed: false };
-    const els = {
-      form: document.getElementById("provision-form"),
-      message: document.getElementById("message"),
-      saveButton: document.getElementById("save-button"),
-      retryButton: document.getElementById("retry-button"),
-      resetButton: document.getElementById("reset-button"),
-      recoveryReason: document.getElementById("recovery-reason"),
-      bootState: document.getElementById("boot-state"),
-      receiverType: document.getElementById("receiver-type"),
-      softapSsid: document.getElementById("softap-ssid"),
-      publicId: document.getElementById("public-id"),
-      opState: document.getElementById("op-state"),
-      wifiSsid: document.getElementById("wifi-ssid"),
-      wifiPassword: document.getElementById("wifi-password"),
-      mqttUri: document.getElementById("mqtt-uri"),
-      mqttUser: document.getElementById("mqtt-user"),
-      mqttPassword: document.getElementById("mqtt-password"),
-      enrollmentToken: document.getElementById("enrollment-token")
-    };
-
-    function syncControls() {
-      els.saveButton.disabled = state.busy;
-      els.retryButton.disabled = state.busy || !state.retryAllowed;
-      els.resetButton.disabled = state.busy;
-      for (const input of els.form.querySelectorAll("input")) {
-        input.disabled = state.busy;
-      }
-    }
-
-    function setBusy(busy, message, tone = "") {
-      state.busy = busy;
-      syncControls();
-      els.message.textContent = message || "";
-      els.message.className = `message${tone ? ` ${tone}` : ""}`;
-    }
-
-    function renderStatus(data) {
-      state.retryAllowed = data.boot_state !== "UNPROVISIONED";
-      syncControls();
-      els.recoveryReason.textContent = data.recovery_reason || "unknown";
-      els.bootState.textContent = data.boot_state || "unknown";
-      els.receiverType.textContent = data.compiled_receiver_type || "unknown";
-      els.softapSsid.textContent = data.softap_ssid || "unknown";
-      els.publicId.textContent = data.public_id || "Not assigned";
-      els.opState.textContent = data.op_state || "NONE";
-    }
-
-    async function loadStatus() {
-      try {
-        const response = await fetch("/api/status", { cache: "no-store" });
-        const data = await response.json();
-        renderStatus(data);
-      } catch (error) {
-        setBusy(false, "Failed to load local status.", "error");
-      }
-    }
-
-    async function postJson(url, body) {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: body ? JSON.stringify(body) : "{}"
-      });
-      const data = await response.json().catch(() => ({ ok: false, message: "Unexpected response." }));
-      if (!response.ok || data.ok === false) {
-        throw new Error(data.message || "Request failed.");
-      }
-      return data;
-    }
-
-    els.form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      if (state.busy) return;
-
-      const payload = {
-        schema_version: 1,
-        wifi: {
-          ssid: els.wifiSsid.value.trim(),
-          password: els.wifiPassword.value
+    (function () {
+      var $ = function (id) {
+          return document.getElementById(id);
         },
-        mqtt: {
-          broker_uri: els.mqttUri.value.trim(),
-          username: els.mqttUser.value.trim(),
-          password: els.mqttPassword.value
+        L = {
+          en: {
+            tt: "Receiver Setup",
+            ls: "SoftAP",
+            lp: "Public ID",
+            lb: "Boot",
+            lr: "Receiver",
+            ly: "Recovery",
+            lo: "State",
+            ss: "Wi-Fi SSID",
+            wp: "Wi-Fi password",
+            bu: "MQTT broker URI",
+            ml: "MQTT username",
+            mp: "MQTT password",
+            tk: "Enrollment token",
+            gl: "Save and Reboot",
+            ec: "Existing configuration",
+            dn: "Device name:",
+            rt: "Retry Current Config",
+            rs: "Factory Reset",
+            sh: "Show",
+            hi: "Hide",
+            bt: "Must start with mqtts://",
+            ld: "loading…",
+            sv: "Saving…",
+            ok: "Device restarting…",
+            pf: "Provision failed",
+            ne: "Network error",
+            ry: "Retrying…",
+            re: "Resetting…",
+            cf: "Erase the stored configuration and reboot?",
+            na: "Not assigned",
+            uk: "unknown",
+            no: "NONE",
+          },
+          vi: {
+            tt: "Cài đặt bộ thu",
+            ls: "SoftAP",
+            lp: "Public ID",
+            lb: "Khởi động",
+            lr: "Loại thu",
+            ly: "Phục hồi",
+            lo: "Trạng thái",
+            ss: "SSID Wi-Fi",
+            wp: "Mật khẩu Wi-Fi",
+            bu: "URI MQTT broker",
+            ml: "Tên đăng nhập MQTT",
+            mp: "Mật khẩu MQTT",
+            tk: "Mã đăng ký",
+            gl: "Lưu và khởi động lại",
+            ec: "Cấu hình hiện có",
+            dn: "Tên thiết bị:",
+            rt: "Thử lại cấu hình hiện tại",
+            rs: "Khôi phục cài đặt gốc",
+            sh: "Hiện",
+            hi: "Ẩn",
+            bt: "Phải bắt đầu bằng mqtts://",
+            ld: "Đang tải…",
+            sv: "Đang lưu…",
+            ok: "Thiết bị đang khởi động lại…",
+            pf: "Cấu hình thất bại",
+            ne: "Lỗi mạng",
+            ry: "Đang thử lại…",
+            re: "Đang xóa…",
+            cf: "Xóa cấu hình đã lưu và khởi động lại?",
+            na: "Chưa gán",
+            uk: "không rõ",
+            no: "KHÔNG",
+          },
         },
-        enrollment: {
-          token: els.enrollmentToken.value.trim()
+        cl = "en",
+        statusData = null,
+        isBusy = false,
+        canRetry = false,
+        set = function (msg, cls) {
+          var s = $("s");
+          s.textContent = msg;
+          s.className = "status " + (cls || "");
+        },
+        busy = function (on) {
+          isBusy = on;
+          $("go").disabled = on;
+          $("retry").disabled = on || !canRetry;
+          $("reset").disabled = on;
+        },
+        t = function (k) {
+          return (L[cl] && L[cl][k]) || L.en[k] || k;
+        },
+        storeLang = function (lang) {
+          try {
+            localStorage.setItem("lang", lang);
+          } catch (e) {}
+        },
+        readLang = function () {
+          try {
+            return localStorage.getItem("lang");
+          } catch (e) {
+            return null;
+          }
+        };
+
+      function applyText() {
+        var nodes = document.querySelectorAll("[data-i18n]");
+        var i;
+        document.title = t("tt");
+        $("lng").textContent = cl === "en" ? "VI" : "EN";
+        for (i = 0; i < nodes.length; i += 1) {
+          nodes[i].textContent = t(nodes[i].getAttribute("data-i18n"));
         }
-      };
-
-      setBusy(true, "Saving configuration and scheduling reboot…");
-      try {
-        const data = await postJson("/api/provision", payload);
-        setBusy(true, data.message || "Configuration saved. Rebooting…", "success");
-      } catch (error) {
-        setBusy(false, error.message || "Failed to save configuration.", "error");
+        nodes = document.querySelectorAll("[data-i18n-title]");
+        for (i = 0; i < nodes.length; i += 1) {
+          nodes[i].title = t(nodes[i].getAttribute("data-i18n-title"));
+        }
       }
-    });
 
-    els.retryButton.addEventListener("click", async () => {
-      if (state.busy) return;
-      setBusy(true, "Scheduling reboot with current credentials…");
-      try {
-        const data = await postJson("/api/retry");
-        setBusy(true, data.message || "Retry scheduled.", "success");
-      } catch (error) {
-        setBusy(false, error.message || "Failed to schedule retry.", "error");
+      function renderToggleLabels() {
+        var toggles = document.querySelectorAll(".toggle");
+        var i;
+        for (i = 0; i < toggles.length; i += 1) {
+          toggles[i].textContent = $(toggles[i].getAttribute("data-for")).type === "password" ? t("sh") : t("hi");
+        }
       }
-    });
 
-    els.resetButton.addEventListener("click", async () => {
-      if (state.busy) return;
-      if (!window.confirm("Erase the runtime configuration and reboot?")) {
-        return;
+      function renderStatus() {
+        if (!statusData) {
+          $("softap").textContent = t("ld");
+          $("pid").textContent = t("ld");
+          $("boot").textContent = t("ld");
+          $("rtype").textContent = t("ld");
+          $("reason").textContent = t("ld");
+          $("op").textContent = t("ld");
+          $("dname").textContent = t("ld");
+          $("nameLine").style.display = "none";
+          canRetry = false;
+          busy(isBusy);
+          return;
+        }
+        $("softap").textContent = statusData.softap_ssid || t("uk");
+        $("pid").textContent = statusData.public_id || t("na");
+        $("boot").textContent = statusData.boot_state || t("uk");
+        $("rtype").textContent = statusData.compiled_receiver_type || t("uk");
+        $("reason").textContent = statusData.recovery_reason || t("uk");
+        $("op").textContent = statusData.op_state || t("no");
+        $("dname").textContent = statusData.device_name || "—";
+        $("nameLine").style.display = statusData.device_name ? "" : "none";
+        canRetry = Boolean(
+          statusData.boot_state && statusData.boot_state !== "UNPROVISIONED"
+        );
+        busy(isBusy);
       }
-      setBusy(true, "Scheduling factory reset…");
-      try {
-        const data = await postJson("/api/reset");
-        setBusy(true, data.message || "Factory reset scheduled.", "success");
-      } catch (error) {
-        setBusy(false, error.message || "Failed to schedule reset.", "error");
-      }
-    });
 
-    syncControls();
-    loadStatus();
+      function setLang(lang) {
+        cl = lang === "vi" ? "vi" : "en";
+        document.documentElement.lang = cl;
+        applyText();
+        renderToggleLabels();
+        renderStatus();
+        storeLang(cl);
+      }
+
+      function parseResponse(response) {
+        return response.text().then(function (text) {
+          var data = null;
+          if (text) {
+            try {
+              data = JSON.parse(text);
+            } catch (e) {
+              data = null;
+            }
+          }
+          if (!response.ok) {
+            throw new Error(
+              (data && (data.message || data.error)) || text || t("ne")
+            );
+          }
+          return data || {};
+        });
+      }
+
+      function loadStatus() {
+        fetch("/api/status", { cache: "no-store" })
+          .then(parseResponse)
+          .then(function (data) {
+            statusData = data;
+            renderStatus();
+          })
+          .catch(function () {
+            set(t("ne"), "err");
+          });
+      }
+
+      (function () {
+        var toggles = document.querySelectorAll(".toggle");
+        var i;
+        for (i = 0; i < toggles.length; i += 1) {
+          toggles[i].addEventListener("click", function () {
+            var input = $(this.getAttribute("data-for"));
+            input.type = input.type === "password" ? "text" : "password";
+            renderToggleLabels();
+          });
+        }
+      })();
+
+      $("f").addEventListener("submit", function (e) {
+        e.preventDefault();
+        if (!$("f").reportValidity()) {
+          return;
+        }
+        busy(true);
+        set(t("sv"));
+        fetch("/api/provision", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            schema_version: 1,
+            wifi: { ssid: $("ssid").value.trim(), password: $("wpw").value },
+            mqtt: {
+              broker_uri: $("uri").value.trim(),
+              username: $("mu").value.trim(),
+              password: $("mp").value,
+            },
+            enrollment: { token: $("tok").value.trim() },
+          }),
+        })
+          .then(parseResponse)
+          .then(function () {
+            set(t("ok"), "ok");
+          })
+          .catch(function (e2) {
+            busy(false);
+            set(e2.message || t("pf"), "err");
+          });
+      });
+
+      $("retry").addEventListener("click", function () {
+        busy(true);
+        set(t("ry"));
+        fetch("/api/retry", { method: "POST" })
+          .then(parseResponse)
+          .then(function () {
+            set(t("ok"), "ok");
+          })
+          .catch(function (e2) {
+            busy(false);
+            set(e2.message || t("ne"), "err");
+          });
+      });
+
+      $("reset").addEventListener("click", function () {
+        if (!confirm(t("cf"))) {
+          return;
+        }
+        busy(true);
+        set(t("re"));
+        fetch("/api/reset", { method: "POST" })
+          .then(parseResponse)
+          .then(function () {
+            set(t("ok"), "ok");
+          })
+          .catch(function (e2) {
+            busy(false);
+            set(e2.message || t("ne"), "err");
+          });
+      });
+
+      $("lng").addEventListener("click", function () {
+        setLang(cl === "en" ? "vi" : "en");
+      });
+
+      setLang(readLang() || "en");
+      loadStatus();
+    })();
   </script>
 </body>
 </html>
