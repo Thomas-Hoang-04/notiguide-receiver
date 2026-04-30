@@ -3,7 +3,7 @@
 # project subdirectory.
 #
 
-PROJECT_NAME := hello-world
+PROJECT_NAME := receiver-8266
 
 # ESP8266_RTOS_SDK snapshots the current CC into HOSTCC before it swaps CC to
 # the xtensa toolchain. Point that early host compiler at our wrapper so
