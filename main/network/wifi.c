@@ -207,8 +207,8 @@ esp_err_t wifi_start_softap(void)
     };
 
     strlcpy((char *)ap_cfg.ap.password, CONFIG_RECEIVER_AP_PASSWORD, sizeof(ap_cfg.ap.password));
-    int written = snprintf(s_softap_ssid, sizeof(s_softap_ssid), "RECEIVER-SETUP-%02X%02X%02X",
-                           mac[3], mac[4], mac[5]);
+    int written = snprintf(s_softap_ssid, sizeof(s_softap_ssid), "notiguide-recv-%02X%02X",
+                           mac[4], mac[5]);
     ESP_RETURN_ON_FALSE(written > 0 && written < (int)sizeof(s_softap_ssid), ESP_FAIL, WIFI_TAG,
                         "failed to build SoftAP SSID");
     strlcpy((char *)ap_cfg.ap.ssid, s_softap_ssid, sizeof(ap_cfg.ap.ssid));
