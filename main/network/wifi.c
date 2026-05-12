@@ -127,7 +127,7 @@ esp_err_t wifi_get_mac_label(char *buf, size_t buf_len)
     uint8_t mac[6] = {0};
     esp_err_t err;
 
-    if (!buf || buf_len < 7) {
+    if (!buf || buf_len < 5) {
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -141,7 +141,7 @@ esp_err_t wifi_get_mac_label(char *buf, size_t buf_len)
         return err;
     }
 
-    snprintf(buf, buf_len, "%02X%02X%02X", mac[3], mac[4], mac[5]);
+    snprintf(buf, buf_len, "%02X%02X", mac[4], mac[5]);
     return ESP_OK;
 }
 
@@ -228,12 +228,12 @@ esp_err_t wifi_start_softap(char *ssid_buf, size_t ssid_buf_len)
     }
 
     if (ssid_buf && ssid_buf_len > 0) {
-        snprintf(ssid_buf, ssid_buf_len, "RECEIVER-SETUP-%s", mac_label);
+        snprintf(ssid_buf, ssid_buf_len, "notiguide-recv-%s", mac_label);
     }
 
     ssid_len = snprintf((char *)wifi_cfg.ap.ssid,
                         sizeof(wifi_cfg.ap.ssid),
-                        "RECEIVER-SETUP-%s",
+                        "notiguide-recv-%s",
                         mac_label);
     wifi_cfg.ap.ssid_len = (uint8_t)ssid_len;
     wifi_cfg.ap.channel = CONFIG_RECEIVER_AP_CHANNEL;
