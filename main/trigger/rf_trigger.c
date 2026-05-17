@@ -8,11 +8,14 @@
 #include <string.h>
 #include "config/device_config.h"
 #include "esp_check.h"
+#include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "vibrator/vibrator.h"
 
 #define RF_TRIGGER_TAG "RF_TRIGGER"
+#define RF_TRIGGER_TOGGLE_DEBOUNCE_US (1200 * 1000)
 
 typedef struct {
     uint8_t code[DEVICE_CONFIG_MAX_RF_CODE_LEN];
@@ -25,6 +28,7 @@ typedef struct {
 static SemaphoreHandle_t s_mutex;
 static VibratorHandler s_vibrator;
 static rf_trigger_state_t s_trigger;
+static int64_t s_last_toggle_us;
 
 static bool copy_state(rf_trigger_state_t *out)
 {
@@ -143,9 +147,20 @@ void rf_trigger_on_frame(uint32_t value, uint8_t value_bits)
                       | ((uint32_t)state.code[3] << 24);
     uint32_t mask = state.bits >= 32 ? UINT32_MAX : ((1UL << state.bits) - 1UL);
 
-    if ((value & mask) == (expected & mask)) {
-        vibrator_toggle_pulsing(&s_vibrator);
+    if ((value & mask) != (expected & mask)) {
+        return;
     }
+
+    if (esp_timer_get_time() - s_last_toggle_us < RF_TRIGGER_TOGGLE_DEBOUNCE_US) {
+        return;
+    }
+
+    ESP_LOGI(RF_TRIGGER_TAG, "RF match on %u bits", value_bits);
+    if (vibrator_toggle_pulsing(&s_vibrator) != ESP_OK) {
+        ESP_LOGE(RF_TRIGGER_TAG, "failed to toggle vibrator pulsing");
+        return;
+    }
+    s_last_toggle_us = esp_timer_get_time();
 }
 
 void rf_trigger_on_packet(const uint8_t *pkt, size_t pkt_len)
