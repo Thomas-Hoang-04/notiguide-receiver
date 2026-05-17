@@ -109,10 +109,11 @@ typedef struct {
 
     // GPIO configuration
     bool rx_active, rx_suspended;   // Reception active flags
-    gpio_num_t rx_gpio;        // Reception GPIO pin
+    bool recv_pending;              // Frame decoded and awaiting processing
+    gpio_num_t rx_gpio;             // Reception GPIO pin
 
     // Receiver task handle
-    TaskHandle_t rf_recv_handle;   // Reception task handle
+    TaskHandle_t rf_recv_handle;    // Reception task handle
 } RFHandler;
 
 typedef void (*rf_frame_callback_t)(uint32_t decoded, uint8_t decoded_bits, void *ctx);

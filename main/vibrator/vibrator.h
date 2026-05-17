@@ -11,6 +11,7 @@
 
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
 
@@ -37,11 +38,12 @@
  * This structure contains the vibrator handler.
  */
 typedef struct {
-    gpio_num_t vibrator_gpio; // Vibrator GPIO pin
-    bool vibrator_active;     // Vibrator active flag
-    bool vibrator_pulsing;    // Continuous pulsing flag
-    bool vibrator_initialized; // Vibrator initialized flag
+    gpio_num_t vibrator_gpio;          // Vibrator GPIO pin
+    bool vibrator_active;              // Vibrator output is currently high
+    bool vibrator_pulsing;             // Continuous pulsing flag
+    bool vibrator_initialized;         // Vibrator initialized flag
     TaskHandle_t vibrator_task_handle; // Vibrator task handle
+    SemaphoreHandle_t state_lock;      // Serializes task and public API state changes
 } VibratorHandler;
 
 /**

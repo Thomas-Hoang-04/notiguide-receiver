@@ -30,8 +30,12 @@ static void rf_recv_task(void *arg)
 
     while (1) {
         if (rf_rmt->rx_active && !rf_rmt->rx_suspended && recv_available(rf_rmt) == ESP_OK) {
-            if (output_recv(rf_rmt, &recv_data) == ESP_OK && s_frame_callback) {
-                s_frame_callback(recv_data.original_value, rf_rmt->recv_bit_length, s_frame_callback_ctx);
+            if (output_recv(rf_rmt, &recv_data) == ESP_OK) {
+                if (s_frame_callback) {
+                    s_frame_callback(recv_data.original_value, rf_rmt->recv_bit_length, s_frame_callback_ctx);
+                } else {
+                    ESP_LOGW(RF_TAG, "frame decoded but no callback registered");
+                }
             }
             reset_recv(rf_rmt);
         }
@@ -78,6 +82,7 @@ static bool IRAM_ATTR recv_proto(RFHandler* rf_rmt, uint8_t proto_idx, uint32_t 
         rf_rmt->recv_bit_length = (edge_count - 1) / 2;
         rf_rmt->recv_delay = delay;
         rf_rmt->recv_proto = proto_idx;
+        rf_rmt->recv_pending = true;
         return true;
     }
 
@@ -164,6 +169,7 @@ esp_err_t rf_recv_init(gpio_num_t rx_gpio, RFHandler* rf_rmt) {
     rf_rmt->recv_bit_length = 0;
     rf_rmt->recv_delay = 0;
     rf_rmt->recv_proto = 0;
+    rf_rmt->recv_pending = false;
     rf_rmt->separation_limit = SEPARATION_LIMIT;
     rf_rmt->recv_tolerance = RECV_TOLERANCE;
 
@@ -312,7 +318,7 @@ esp_err_t recv_available(RFHandler* rf_rmt) {
     ESP_RETURN_ON_FALSE(rf_rmt->rx_active && rf_rmt->rx_gpio != RF_GPIO_UNASSIGNED, ESP_ERR_INVALID_STATE, RF_TAG, "RF receiver is not active");
     ESP_RETURN_ON_FALSE(!rf_rmt->rx_suspended, ESP_ERR_INVALID_STATE, RF_TAG, "RF receiver is suspended");
 
-    return (rf_rmt->recv_value != 0) ? ESP_OK : ESP_ERR_NOT_FOUND;
+    return rf_rmt->recv_pending ? ESP_OK : ESP_ERR_NOT_FOUND;
 }
 
 esp_err_t reset_recv(RFHandler* rf_rmt) {
@@ -321,6 +327,7 @@ esp_err_t reset_recv(RFHandler* rf_rmt) {
     ESP_RETURN_ON_FALSE(!rf_rmt->rx_suspended, ESP_ERR_INVALID_STATE, RF_TAG, "RF receiver is suspended");
 
     rf_rmt->recv_value = 0;
+    rf_rmt->recv_pending = false;
     return ESP_OK;
 }
 
