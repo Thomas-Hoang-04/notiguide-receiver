@@ -13,7 +13,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 
-#define RF_TRIGGER_TOGGLE_DEBOUNCE_US 750000
+#define RF_TRIGGER_TOGGLE_DEBOUNCE_US (1200 * 1000)
 
 static SemaphoreHandle_t s_trigger_mutex;
 static VibratorHandler *s_vibrator;
