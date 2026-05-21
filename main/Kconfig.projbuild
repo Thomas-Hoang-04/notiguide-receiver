@@ -111,4 +111,8 @@ config RECEIVER_BACKEND_PUBKEY_B64
         Keep cmd_signing_priv.pem out of source control. Leaving this
         empty causes device identity initialization to fail at boot.
 
+config RECEIVER_MQTT_TOPIC_PREFIX
+    string "MQTT topic prefix"
+    default "notiguide"
+
 endmenu

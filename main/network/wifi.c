@@ -148,13 +148,12 @@ esp_err_t wifi_start_sta(const device_config_t *cfg)
     wifi_config_t sta_cfg = {
         .sta = {
             .scan_method = WIFI_ALL_CHANNEL_SCAN,
-            .threshold.authmode = WIFI_AUTH_WPA2_PSK,
-            .pmf_cfg = {
-                .required = false,
-            },
-            .disable_wpa3_compatible_mode = 0,
+            .threshold.authmode = WIFI_AUTH_WPA2_WPA3_PSK,
+            .pmf_cfg = { .required = true },
+            .disable_wpa3_compatible_mode = 1,
             .sae_pwe_h2e = WPA3_SAE_PWE_BOTH,
             .failure_retry_cnt = CONFIG_RECEIVER_WIFI_MAX_RETRY,
+            .sae_h2e_identifier = "notiguide-recv",
         },
     };
 
@@ -197,12 +196,9 @@ esp_err_t wifi_start_softap(void)
         .ap = {
             .channel = CONFIG_RECEIVER_AP_CHANNEL,
             .max_connection = 1,
-            .authmode = WIFI_AUTH_WPA2_PSK,
-            .pmf_cfg = {
-                .required = false,
-            },
+            .authmode = WIFI_AUTH_WPA2_WPA3_PSK,
+            .pmf_cfg = { .required = true },
             .sae_pwe_h2e = WPA3_SAE_PWE_BOTH,
-            .wpa3_compatible_mode = 1,
         },
     };
 

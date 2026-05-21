@@ -23,8 +23,10 @@
 #include "security/device_identity.h"
 #include "trigger/rf_supervisor.h"
 #include "trigger/rf_trigger.h"
+#include "sdkconfig.h"
 
 #define MQTT_TAG "MQTT"
+#define TOPIC_PREFIX CONFIG_RECEIVER_MQTT_TOPIC_PREFIX "/"
 #define MQTT_CONNECTED_BIT          BIT0
 #define MQTT_BOOTSTRAP_DONE_BIT     BIT1
 #define MQTT_BOOTSTRAP_REJECTED_BIT BIT2
@@ -32,7 +34,7 @@
 
 /* Buffer large enough for any MQTT topic that embeds `public_id` (up to
  * DEVICE_CONFIG_MAX_PUBLIC_ID_LEN) plus our longest fixed prefix/suffix
- * (e.g. "receiver/device/<public_id>/cmd/rf_code"). */
+ * (e.g. TOPIC_PREFIX "receiver/device/<public_id>/cmd/rf_code"). */
 #define MQTT_TOPIC_BUF_LEN          (DEVICE_CONFIG_MAX_PUBLIC_ID_LEN + 64U)
 
 /* Buffer large enough for the deact-v1 canonical string, which embeds
@@ -212,7 +214,7 @@ static esp_err_t mqtt_publish_register(void)
     cJSON_AddStringToObject(json, "enrollment_token", s_mqtt.cfg->enroll_token);
     cJSON_AddStringToObject(json, "registration_nonce", s_mqtt.registration_nonce);
 
-    esp_err_t err = mqtt_publish_json("receiver/bootstrap/register", json, 1, 0);
+    esp_err_t err = mqtt_publish_json(TOPIC_PREFIX "receiver/bootstrap/register", json, 1, 0);
     cJSON_Delete(json);
     return err;
 }
@@ -237,7 +239,7 @@ static esp_err_t mqtt_publish_rf_ack(const char *status, uint32_t version)
     char ack_topic[MQTT_TOPIC_BUF_LEN];
     char applied_at[32];
     mqtt_format_now_iso8601(applied_at, sizeof(applied_at));
-    snprintf(ack_topic, sizeof(ack_topic), "receiver/device/%s/ack", s_mqtt.cfg->public_id);
+    snprintf(ack_topic, sizeof(ack_topic), TOPIC_PREFIX "receiver/device/%s/ack", s_mqtt.cfg->public_id);
 
     cJSON *json = cJSON_CreateObject();
     ESP_RETURN_ON_FALSE(json != NULL, ESP_ERR_NO_MEM, MQTT_TAG, "failed to create JSON");
@@ -257,7 +259,7 @@ static esp_err_t mqtt_publish_deact_ack(const char *command_id, const char *acti
     char ack_topic[MQTT_TOPIC_BUF_LEN];
     char applied_at[32];
     mqtt_format_now_iso8601(applied_at, sizeof(applied_at));
-    snprintf(ack_topic, sizeof(ack_topic), "receiver/device/%s/ack", s_mqtt.cfg->public_id);
+    snprintf(ack_topic, sizeof(ack_topic), TOPIC_PREFIX "receiver/device/%s/ack", s_mqtt.cfg->public_id);
 
     cJSON *json = cJSON_CreateObject();
     ESP_RETURN_ON_FALSE(json != NULL, ESP_ERR_NO_MEM, MQTT_TAG, "failed to create JSON");
@@ -319,11 +321,11 @@ static void mqtt_subscribe_current_phase(void)
     if (s_mqtt.phase == MQTT_PHASE_BOOTSTRAP) {
         const char *topic = s_mqtt.bootstrap_topic[0] != '\0'
                           ? s_mqtt.bootstrap_topic
-                          : "receiver/bootstrap/+";
+                          : TOPIC_PREFIX "receiver/bootstrap/+";
         esp_mqtt_client_subscribe(s_mqtt.client, topic, 1);
     } else {
         char topic[MQTT_TOPIC_BUF_LEN];
-        snprintf(topic, sizeof(topic), "receiver/device/%s/cmd/#", s_mqtt.cfg->public_id);
+        snprintf(topic, sizeof(topic), TOPIC_PREFIX "receiver/device/%s/cmd/#", s_mqtt.cfg->public_id);
         esp_mqtt_client_subscribe(s_mqtt.client, topic, 1);
     }
 }
@@ -367,7 +369,7 @@ static esp_err_t mqtt_start_internal(void)
         },
         .task = {
             .priority = 7,
-            .stack_size = 8192,
+            .stack_size = 5120,
         },
         .buffer = {
             .size = 2048,
@@ -422,9 +424,9 @@ static void mqtt_handle_pending(cJSON *json)
     }
 
     strlcpy(s_mqtt.challenge_id, challenge_id, sizeof(s_mqtt.challenge_id));
-    snprintf(s_mqtt.bootstrap_topic, sizeof(s_mqtt.bootstrap_topic), "receiver/bootstrap/%s",
+    snprintf(s_mqtt.bootstrap_topic, sizeof(s_mqtt.bootstrap_topic), TOPIC_PREFIX "receiver/bootstrap/%s",
              challenge_id);
-    esp_mqtt_client_unsubscribe(s_mqtt.client, "receiver/bootstrap/+");
+    esp_mqtt_client_unsubscribe(s_mqtt.client, TOPIC_PREFIX "receiver/bootstrap/+");
     esp_mqtt_client_subscribe(s_mqtt.client, s_mqtt.bootstrap_topic, 1);
 }
 
@@ -766,8 +768,8 @@ static void mqtt_handle_operational_message(const char *topic, const char *paylo
 {
     char rf_topic[MQTT_TOPIC_BUF_LEN];
     char deact_topic[MQTT_TOPIC_BUF_LEN];
-    snprintf(rf_topic, sizeof(rf_topic), "receiver/device/%s/cmd/rf_code", s_mqtt.cfg->public_id);
-    snprintf(deact_topic, sizeof(deact_topic), "receiver/device/%s/cmd/deact", s_mqtt.cfg->public_id);
+    snprintf(rf_topic, sizeof(rf_topic), TOPIC_PREFIX "receiver/device/%s/cmd/rf_code", s_mqtt.cfg->public_id);
+    snprintf(deact_topic, sizeof(deact_topic), TOPIC_PREFIX "receiver/device/%s/cmd/deact", s_mqtt.cfg->public_id);
 
     if (strcmp(topic, rf_topic) == 0) {
         mqtt_handle_rf_code(payload);
