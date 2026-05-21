@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include "esp_err.h"
 #include "config/device_config.h"
+#include "portmacro.h"
 
 typedef enum {
     RECEIVER_WIFI_MODE_IDLE = 0,
@@ -58,5 +59,15 @@ const char *wifi_get_softap_ssid(void);
  * @return True when the station has obtained an IP address
  */
 bool wifi_is_sta_connected(void);
+
+/**
+ * @brief One-shot STA connection test with raw credentials.
+ *
+ * @param ssid     Wi-Fi SSID (must not be NULL)
+ * @param password Wi-Fi password (may be NULL for open networks)
+ * @param timeout  Maximum time to wait for connection
+ * @return ESP_OK on successful connection, ESP_FAIL on timeout, or an error code
+ */
+esp_err_t wifi_start_sta_test(const char *ssid, const char *password, TickType_t timeout);
 
 #endif /* RECEIVER_WIFI_H */

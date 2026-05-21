@@ -252,3 +252,50 @@ bool wifi_is_sta_connected(void)
 {
     return s_sta_connected;
 }
+
+esp_err_t wifi_start_sta_test(const char *ssid, const char *password, TickType_t timeout)
+{
+    ESP_RETURN_ON_FALSE(ssid != NULL, ESP_ERR_INVALID_ARG, WIFI_TAG, "ssid is NULL");
+
+    ESP_RETURN_ON_ERROR(wifi_init_common(), WIFI_TAG, "wifi init failed");
+    if (s_sta_netif == NULL) {
+        s_sta_netif = esp_netif_create_default_wifi_sta();
+        ESP_RETURN_ON_FALSE(s_sta_netif != NULL, ESP_FAIL, WIFI_TAG, "failed to create STA netif");
+    }
+    ESP_RETURN_ON_ERROR(wifi_prepare_mode(RECEIVER_WIFI_MODE_STA), WIFI_TAG,
+                        "failed to prepare STA mode");
+
+    bool has_password = (password != NULL && password[0] != '\0');
+
+    wifi_config_t sta_cfg = {
+        .sta = {
+            .scan_method = WIFI_ALL_CHANNEL_SCAN,
+            .threshold.authmode = has_password ? WIFI_AUTH_WPA2_WPA3_PSK : WIFI_AUTH_OPEN,
+            .pmf_cfg = { .required = has_password },
+            .sae_pwe_h2e = WPA3_SAE_PWE_BOTH,
+            .failure_retry_cnt = CONFIG_RECEIVER_WIFI_MAX_RETRY,
+            .sae_h2e_identifier = "notiguide-recv",
+        },
+    };
+
+    strlcpy((char *)sta_cfg.sta.ssid, ssid, sizeof(sta_cfg.sta.ssid));
+    if (has_password) {
+        strlcpy((char *)sta_cfg.sta.password, password, sizeof(sta_cfg.sta.password));
+    }
+
+    ESP_RETURN_ON_ERROR(esp_wifi_set_mode(WIFI_MODE_STA), WIFI_TAG, "esp_wifi_set_mode failed");
+    ESP_RETURN_ON_ERROR(esp_wifi_set_config(WIFI_IF_STA, &sta_cfg), WIFI_TAG,
+                        "esp_wifi_set_config failed");
+    ESP_RETURN_ON_ERROR(esp_wifi_start(), WIFI_TAG, "esp_wifi_start failed");
+
+    EventBits_t bits = xEventGroupWaitBits(s_events,
+                                           WIFI_EVENT_CONNECTED_BIT | WIFI_EVENT_FAILED_BIT,
+                                           pdFALSE,
+                                           pdFALSE,
+                                           timeout);
+    if ((bits & WIFI_EVENT_CONNECTED_BIT) == 0) {
+        return ESP_FAIL;
+    }
+
+    return ESP_OK;
+}

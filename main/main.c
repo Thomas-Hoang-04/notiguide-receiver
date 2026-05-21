@@ -15,6 +15,7 @@
 #include "network/mqtt.h"
 #include "network/wifi.h"
 #include "provision/http_server.h"
+#include "serial/serial_protocol.h"
 #include "security/device_identity.h"
 #include "trigger/rf_supervisor.h"
 #include "trigger/rf_trigger.h"
@@ -110,6 +111,8 @@ void app_main(void)
     g_provision_events = xEventGroupCreate();
     ESP_ERROR_CHECK(g_provision_events != NULL ? ESP_OK : ESP_ERR_NO_MEM);
 
+    ESP_ERROR_CHECK(serial_protocol_init());
+
     switch (device_config_boot_state(&g_cfg)) {
         case DEVICE_BOOT_STATE_UNPROVISIONED:
             run_provisioning_mode(PROVISION_REASON_UNPROVISIONED);
@@ -152,6 +155,8 @@ void app_main(void)
 
     restore_trigger_state();
     dispatch_operational_state();
+
+    serial_protocol_stop();
 
     for (;;) {
         vTaskDelay(pdMS_TO_TICKS(1000));
