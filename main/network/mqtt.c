@@ -665,8 +665,6 @@ esp_err_t mqtt_start(const device_config_t *cfg,
                      mqtt_message_callback_t message_cb,
                      void *message_ctx)
 {
-    esp_mqtt_client_config_t mqtt_cfg = {0};
-
     if (!cfg || !cfg->mqtt_uri || !cfg->mqtt_user || !cfg->mqtt_pwd) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -691,19 +689,19 @@ esp_err_t mqtt_start(const device_config_t *cfg,
     }
     xEventGroupClearBits(s_mqtt_events, MQTT_CONNECTED_BIT | MQTT_FAILED_BIT);
 
-    mqtt_cfg.uri = cfg->mqtt_uri;
-    if (cfg->has_public_id) {
-        mqtt_cfg.client_id = cfg->public_id;
-    }
-    mqtt_cfg.username = cfg->mqtt_user;
-    mqtt_cfg.password = cfg->mqtt_pwd;
-    mqtt_cfg.transport = MQTT_TRANSPORT_OVER_SSL;
-    mqtt_cfg.cert_pem = mqtt_ca_pem_body();
-    mqtt_cfg.cert_len = mqtt_ca_pem_len();
-    mqtt_cfg.keepalive = 120;
-    mqtt_cfg.buffer_size = 2048;
-    mqtt_cfg.protocol_ver = MQTT_PROTOCOL_V_3_1_1;
-    mqtt_cfg.reconnect_timeout_ms = 5000;
+    esp_mqtt_client_config_t mqtt_cfg = {
+        .uri = cfg->mqtt_uri,
+        .client_id = cfg->has_public_id ? cfg->public_id : NULL,
+        .username = cfg->mqtt_user,
+        .password = cfg->mqtt_pwd,
+        .transport = MQTT_TRANSPORT_OVER_SSL,
+        .cert_pem = mqtt_ca_pem_body(),
+        .cert_len = mqtt_ca_pem_len(),
+        .keepalive = 120,
+        .buffer_size = 2048,
+        .protocol_ver = MQTT_PROTOCOL_V_3_1_1,
+        .reconnect_timeout_ms = 5000,
+    };
 
     ESP_LOGI(MQTT_TAG, "Connecting to %s (client_id=%s)",
              cfg->mqtt_uri, cfg->has_public_id ? cfg->public_id : "auto");

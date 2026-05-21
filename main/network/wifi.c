@@ -2,8 +2,8 @@
  * @file wifi.c
  * @brief Wi-Fi Module - Runtime Networking Implementation
  *
- * Implements STA association, SoftAP provisioning mode, MAC label formatting,
- * and event-driven connection state tracking for the receiver firmware.
+ * Implements STA association, MAC label formatting, and event-driven
+ * connection state tracking for the receiver firmware.
  */
 
 #include "network/wifi.h"
@@ -151,7 +151,20 @@ esp_err_t wifi_start_sta(const char *ssid, const char *password)
 {
     esp_err_t err;
     EventBits_t bits;
-    wifi_config_t wifi_cfg = {0};
+    wifi_config_t wifi_cfg = {
+        .sta = {
+            .scan_method = WIFI_FAST_SCAN,
+            .sort_method = WIFI_CONNECT_AP_BY_SIGNAL,
+            .threshold = {
+                .rssi = -127,
+                .authmode = WIFI_AUTH_WPA2_PSK,
+            },
+            .pmf_cfg = {
+                .capable = true,
+                .required = false,
+            },
+        },
+    };
 
     if (!ssid || !password) {
         return ESP_ERR_INVALID_ARG;
@@ -178,12 +191,6 @@ esp_err_t wifi_start_sta(const char *ssid, const char *password)
 
     snprintf((char *)wifi_cfg.sta.ssid, sizeof(wifi_cfg.sta.ssid), "%s", ssid);
     snprintf((char *)wifi_cfg.sta.password, sizeof(wifi_cfg.sta.password), "%s", password);
-    wifi_cfg.sta.scan_method = WIFI_FAST_SCAN;
-    wifi_cfg.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
-    wifi_cfg.sta.threshold.rssi = -127;
-    wifi_cfg.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
-    wifi_cfg.sta.pmf_cfg.capable = true;
-    wifi_cfg.sta.pmf_cfg.required = false;
 #if CONFIG_ESP8266_WIFI_ENABLE_WPA3_SAE
     if (strlen(password) > 0) {
         wifi_cfg.sta.threshold.authmode = WIFI_AUTH_WPA2_WPA3_PSK;
@@ -224,58 +231,89 @@ esp_err_t wifi_start_sta(const char *ssid, const char *password)
     return ESP_FAIL;
 }
 
-esp_err_t wifi_start_softap(char *ssid_buf, size_t ssid_buf_len)
+esp_err_t wifi_start_sta_test(const char *ssid, const char *password, TickType_t timeout)
 {
     esp_err_t err;
-    char mac_label[7] = {0};
-    wifi_config_t wifi_cfg = {0};
-    int ssid_len;
+    EventBits_t bits;
+    bool has_password = (password != NULL && password[0] != '\0');
 
-    err = wifi_get_mac_label(mac_label, sizeof(mac_label));
+    wifi_config_t wifi_cfg = {
+        .sta = {
+            .scan_method = WIFI_FAST_SCAN,
+            .sort_method = WIFI_CONNECT_AP_BY_SIGNAL,
+            .threshold = {
+                .rssi = -127,
+                .authmode = has_password ? WIFI_AUTH_WPA2_PSK : WIFI_AUTH_OPEN,
+            },
+            .pmf_cfg = {
+                .capable = true,
+                .required = false,
+            },
+        },
+    };
+
+    if (!ssid) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    err = wifi_init();
     if (err != ESP_OK) {
         return err;
     }
 
-    if (ssid_buf && ssid_buf_len > 0) {
-        snprintf(ssid_buf, ssid_buf_len, "notiguide-recv-%s", mac_label);
+    if (!s_wifi_events) {
+        s_wifi_events = xEventGroupCreate();
+        if (!s_wifi_events) {
+            return ESP_ERR_NO_MEM;
+        }
     }
+    xEventGroupClearBits(s_wifi_events, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT);
+    s_retry_num = 0;
 
-    ssid_len = snprintf((char *)wifi_cfg.ap.ssid,
-                        sizeof(wifi_cfg.ap.ssid),
-                        "notiguide-recv-%s",
-                        mac_label);
-    wifi_cfg.ap.ssid_len = (uint8_t)ssid_len;
-    wifi_cfg.ap.channel = CONFIG_RECEIVER_AP_CHANNEL;
-    wifi_cfg.ap.authmode = WIFI_AUTH_WPA2_PSK;
-    wifi_cfg.ap.max_connection = 2;
-    wifi_cfg.ap.beacon_interval = 100;
-    snprintf((char *)wifi_cfg.ap.password, sizeof(wifi_cfg.ap.password), "%s", CONFIG_RECEIVER_AP_PASSWORD);
-
-    wifi_unregister_handlers();
-    err = esp_wifi_set_mode(WIFI_MODE_AP);
+    err = wifi_register_handlers();
     if (err != ESP_OK) {
-        ESP_LOGE(WIFI_TAG, "set_mode AP failed: %s", esp_err_to_name(err));
         return err;
     }
 
-    err = esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_cfg);
+    snprintf((char *)wifi_cfg.sta.ssid, sizeof(wifi_cfg.sta.ssid), "%s", ssid);
+    if (password != NULL) {
+        snprintf((char *)wifi_cfg.sta.password, sizeof(wifi_cfg.sta.password), "%s", password);
+    }
+#if CONFIG_ESP8266_WIFI_ENABLE_WPA3_SAE
+    if (password != NULL && strlen(password) > 0) {
+        wifi_cfg.sta.threshold.authmode = WIFI_AUTH_WPA2_WPA3_PSK;
+    }
+#endif
+
+    err = esp_wifi_set_mode(WIFI_MODE_STA);
     if (err != ESP_OK) {
-        ESP_LOGE(WIFI_TAG, "set_config AP failed: %s", esp_err_to_name(err));
+        ESP_LOGE(WIFI_TAG, "set_mode STA failed: %s", esp_err_to_name(err));
         return err;
     }
 
-    err = esp_wifi_set_protocol(ESP_IF_WIFI_AP,
-                                WIFI_PROTOCOL_11B |
-                                WIFI_PROTOCOL_11G |
-                                WIFI_PROTOCOL_11N);
+    err = esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_cfg);
     if (err != ESP_OK) {
-        ESP_LOGE(WIFI_TAG, "set_protocol AP failed: %s", esp_err_to_name(err));
+        ESP_LOGE(WIFI_TAG, "set_config STA failed: %s", esp_err_to_name(err));
         return err;
     }
 
-    ESP_LOGI(WIFI_TAG, "SoftAP starting: SSID=%s channel=%d",
-             (char *)wifi_cfg.ap.ssid, wifi_cfg.ap.channel);
-    return esp_wifi_start();
+    ESP_LOGI(WIFI_TAG, "STA test starting, connecting to %s", ssid);
+    err = esp_wifi_start();
+    if (err != ESP_OK && err != ESP_ERR_WIFI_CONN) {
+        ESP_LOGE(WIFI_TAG, "esp_wifi_start failed: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    bits = xEventGroupWaitBits(s_wifi_events,
+                               WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
+                               pdTRUE,
+                               pdFALSE,
+                               timeout);
+    if (bits & WIFI_CONNECTED_BIT) {
+        return ESP_OK;
+    }
+
+    return ESP_FAIL;
 }
 
 esp_err_t wifi_stop(void)

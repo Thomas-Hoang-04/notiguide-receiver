@@ -17,7 +17,7 @@
 #include "config/device_config.h"
 #include "network/mqtt.h"
 #include "network/wifi.h"
-#include "provision/recovery.h"
+#include "serial/serial_protocol.h"
 #include "rf/rf_common.h"
 #include "security/device_identity.h"
 #include "trigger/rf_supervisor.h"
@@ -31,9 +31,9 @@
 #define MAIN_TAG "MAIN"
 #define VIBRATOR_GPIO GPIO_NUM_2
 
-RFHandler g_rf = {0};
-static VibratorHandler s_vibrator = {0};
-static device_identity_t s_identity = {0};
+RFHandler g_rf = { .rx_active = false, .rx_suspended = false, .rx_gpio = -1 };
+static VibratorHandler s_vibrator = { .vibrator_task_handle = NULL, .state_lock = NULL };
+static device_identity_t s_identity = { .device_key_ready = false, .backend_key_ready = false };
 
 static void restart_after_response_flush(void)
 {
@@ -178,11 +178,14 @@ static void enter_operational_state(const device_config_t *cfg)
     }
 }
 
-static void handle_recovery_result(provision_recovery_result_t result)
+static void run_serial_provisioning(device_config_t *cfg, const char *reason)
 {
-    if (result == PROVISION_RECOVERY_RESULT_RESTART) {
-        restart_after_response_flush();
+    ESP_LOGW(MAIN_TAG, "Entering serial provisioning: %s", reason);
+    serial_prov_result_t result = serial_protocol_run_blocking(cfg, reason);
+    if (result == SERIAL_PROV_RESULT_RESET) {
+        device_config_erase_runtime();
     }
+    restart_after_response_flush();
 }
 
 void app_main(void)
@@ -194,6 +197,8 @@ void app_main(void)
 
     device_config_init(&cfg);
     ESP_ERROR_CHECK(init_platform_once());
+    ESP_ERROR_CHECK(serial_protocol_init());
+    ESP_LOGI(MAIN_TAG, "Serial provisioning initialized");
     ESP_LOGI(MAIN_TAG, "Platform init complete");
 
     for (;;) {
@@ -204,30 +209,24 @@ void app_main(void)
         restore_rf_snapshot(&cfg);
 
         if (!device_config_is_provisioned(&cfg)) {
-            ESP_LOGW(MAIN_TAG, "Not provisioned, entering recovery");
-            provision_recovery_result_t result =
-                provision_run_recovery_mode(PROVISION_RECOVERY_REASON_UNPROVISIONED);
+            ESP_LOGW(MAIN_TAG, "Not provisioned, entering serial provisioning");
+            run_serial_provisioning(&cfg, "UNPROVISIONED");
             device_config_free(&cfg);
-            handle_recovery_result(result);
             continue;
         }
 
         if (device_config_is_recovery_required(&cfg)) {
             ESP_LOGW(MAIN_TAG, "Recovery required (missing enroll token)");
-            provision_recovery_result_t result =
-                provision_run_recovery_mode(PROVISION_RECOVERY_REASON_MISSING_ENROLL_TOKEN);
+            run_serial_provisioning(&cfg, "MISSING_ENROLL_TOKEN");
             device_config_free(&cfg);
-            handle_recovery_result(result);
             continue;
         }
 
         ESP_LOGI(MAIN_TAG, "Connecting to WiFi SSID: %s", cfg.wifi_ssid ? cfg.wifi_ssid : "?");
         if (attempt_wifi_stage(&cfg) != ESP_OK) {
             ESP_LOGE(MAIN_TAG, "WiFi connection failed");
-            provision_recovery_result_t result =
-                provision_run_recovery_mode(PROVISION_RECOVERY_REASON_WIFI_FAILED);
+            run_serial_provisioning(&cfg, "WIFI_FAILED");
             device_config_free(&cfg);
-            handle_recovery_result(result);
             continue;
         }
         ESP_LOGI(MAIN_TAG, "WiFi connected");
@@ -235,10 +234,8 @@ void app_main(void)
         ESP_LOGI(MAIN_TAG, "Starting MQTT to %s", cfg.mqtt_uri ? cfg.mqtt_uri : "?");
         if (attempt_mqtt_stage(&cfg) != ESP_OK) {
             ESP_LOGE(MAIN_TAG, "MQTT connection failed");
-            provision_recovery_result_t result =
-                provision_run_recovery_mode(PROVISION_RECOVERY_REASON_MQTT_FAILED);
+            run_serial_provisioning(&cfg, "MQTT_FAILED");
             device_config_free(&cfg);
-            handle_recovery_result(result);
             continue;
         }
         ESP_LOGI(MAIN_TAG, "MQTT connected");
@@ -247,28 +244,22 @@ void app_main(void)
         err = attempt_activation_stage(&cfg);
         if (err == ESP_ERR_INVALID_STATE) {
             ESP_LOGW(MAIN_TAG, "Missing enroll token for activation");
-            provision_recovery_result_t result =
-                provision_run_recovery_mode(PROVISION_RECOVERY_REASON_MISSING_ENROLL_TOKEN);
+            run_serial_provisioning(&cfg, "MISSING_ENROLL_TOKEN");
             device_config_free(&cfg);
-            handle_recovery_result(result);
             continue;
         }
         if (err != ESP_OK) {
             ESP_LOGE(MAIN_TAG, "Bootstrap activation failed: %s", esp_err_to_name(err));
-            provision_recovery_result_t result =
-                provision_run_recovery_mode(PROVISION_RECOVERY_REASON_BOOTSTRAP_FAILED);
+            run_serial_provisioning(&cfg, "BOOTSTRAP_FAILED");
             device_config_free(&cfg);
-            handle_recovery_result(result);
             continue;
         }
 
         ESP_LOGI(MAIN_TAG, "Subscribing to command topics");
         if (subscribe_command_topics(&cfg) != ESP_OK) {
             ESP_LOGE(MAIN_TAG, "Command topic subscription failed");
-            provision_recovery_result_t result =
-                provision_run_recovery_mode(PROVISION_RECOVERY_REASON_MQTT_FAILED);
+            run_serial_provisioning(&cfg, "MQTT_FAILED");
             device_config_free(&cfg);
-            handle_recovery_result(result);
             continue;
         }
 
