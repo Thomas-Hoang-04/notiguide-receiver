@@ -115,9 +115,11 @@ esp_err_t wifi_init(void)
 
     err = esp_wifi_init(&init_cfg);
     if (err != ESP_OK) {
+        ESP_LOGE(WIFI_TAG, "esp_wifi_init failed: %s", esp_err_to_name(err));
         return err;
     }
 
+    ESP_LOGI(WIFI_TAG, "WiFi subsystem initialized");
     s_wifi_initialized = true;
     return ESP_OK;
 }
@@ -190,28 +192,35 @@ esp_err_t wifi_start_sta(const char *ssid, const char *password)
 
     err = esp_wifi_set_mode(WIFI_MODE_STA);
     if (err != ESP_OK) {
+        ESP_LOGE(WIFI_TAG, "set_mode STA failed: %s", esp_err_to_name(err));
         return err;
     }
 
     err = esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_cfg);
     if (err != ESP_OK) {
+        ESP_LOGE(WIFI_TAG, "set_config STA failed: %s", esp_err_to_name(err));
         return err;
     }
 
+    ESP_LOGI(WIFI_TAG, "STA starting, connecting to %s", ssid);
     err = esp_wifi_start();
     if (err != ESP_OK && err != ESP_ERR_WIFI_CONN) {
+        ESP_LOGE(WIFI_TAG, "esp_wifi_start failed: %s", esp_err_to_name(err));
         return err;
     }
 
+    ESP_LOGI(WIFI_TAG, "Waiting for connection result...");
     bits = xEventGroupWaitBits(s_wifi_events,
                                WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
                                pdTRUE,
                                pdFALSE,
                                portMAX_DELAY);
     if (bits & WIFI_CONNECTED_BIT) {
+        ESP_LOGI(WIFI_TAG, "STA connected, enabling power save");
         return esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
     }
 
+    ESP_LOGE(WIFI_TAG, "STA connection failed after %d retries", CONFIG_RECEIVER_WIFI_MAX_RETRY);
     return ESP_FAIL;
 }
 
@@ -238,21 +247,34 @@ esp_err_t wifi_start_softap(char *ssid_buf, size_t ssid_buf_len)
     wifi_cfg.ap.ssid_len = (uint8_t)ssid_len;
     wifi_cfg.ap.channel = CONFIG_RECEIVER_AP_CHANNEL;
     wifi_cfg.ap.authmode = WIFI_AUTH_WPA2_PSK;
-    wifi_cfg.ap.max_connection = 1;
+    wifi_cfg.ap.max_connection = 2;
     wifi_cfg.ap.beacon_interval = 100;
     snprintf((char *)wifi_cfg.ap.password, sizeof(wifi_cfg.ap.password), "%s", CONFIG_RECEIVER_AP_PASSWORD);
 
     wifi_unregister_handlers();
     err = esp_wifi_set_mode(WIFI_MODE_AP);
     if (err != ESP_OK) {
+        ESP_LOGE(WIFI_TAG, "set_mode AP failed: %s", esp_err_to_name(err));
         return err;
     }
 
     err = esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_cfg);
     if (err != ESP_OK) {
+        ESP_LOGE(WIFI_TAG, "set_config AP failed: %s", esp_err_to_name(err));
         return err;
     }
 
+    err = esp_wifi_set_protocol(ESP_IF_WIFI_AP,
+                                WIFI_PROTOCOL_11B |
+                                WIFI_PROTOCOL_11G |
+                                WIFI_PROTOCOL_11N);
+    if (err != ESP_OK) {
+        ESP_LOGE(WIFI_TAG, "set_protocol AP failed: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    ESP_LOGI(WIFI_TAG, "SoftAP starting: SSID=%s channel=%d",
+             (char *)wifi_cfg.ap.ssid, wifi_cfg.ap.channel);
     return esp_wifi_start();
 }
 
@@ -264,9 +286,11 @@ esp_err_t wifi_stop(void)
         return ESP_OK;
     }
 
+    ESP_LOGI(WIFI_TAG, "Stopping WiFi");
     wifi_unregister_handlers();
     err = esp_wifi_stop();
     if (err != ESP_OK && err != ESP_ERR_WIFI_NOT_INIT && err != ESP_ERR_WIFI_NOT_STARTED) {
+        ESP_LOGE(WIFI_TAG, "esp_wifi_stop failed: %s", esp_err_to_name(err));
         return err;
     }
 

@@ -35,6 +35,7 @@ esp_err_t rf_trigger_init(VibratorHandler *vibrator)
 
     s_vibrator = vibrator;
     rf_trigger_clear();
+    ESP_LOGI(RF_TRIGGER_TAG, "RF trigger initialized");
     return ESP_OK;
 }
 
@@ -90,6 +91,7 @@ void rf_trigger_restore(uint32_t code, uint8_t bits, uint32_t version)
         return;
     }
 
+    ESP_LOGI(RF_TRIGGER_TAG, "Restored RF code: %u bits, version %u", bits, version);
     rf_trigger_set(code, bits, version);
 }
 

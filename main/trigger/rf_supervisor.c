@@ -8,7 +8,10 @@
 
 #include "trigger/rf_supervisor.h"
 
+#include "esp_log.h"
 #include "rf/rf_common.h"
+
+#define RF_SUP_TAG "RF_SUP"
 
 #define RF_RX_GPIO GPIO_NUM_0
 
@@ -16,6 +19,7 @@ extern RFHandler g_rf;
 
 esp_err_t rf_sup_start(void)
 {
+    ESP_LOGI(RF_SUP_TAG, "Starting RF receiver on GPIO %d", RF_RX_GPIO);
     return rf_recv_start_task(RF_RX_GPIO, &g_rf);
 }
 

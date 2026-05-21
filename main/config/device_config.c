@@ -119,9 +119,11 @@ esp_err_t device_config_load(device_config_t *cfg)
 
     err = open_device_cfg(NVS_READONLY, &handle);
     if (err == ESP_ERR_NVS_NOT_FOUND) {
+        ESP_LOGI(DEVICE_CONFIG_TAG, "No config in NVS (first boot)");
         return ESP_OK;
     }
     if (err != ESP_OK) {
+        ESP_LOGE(DEVICE_CONFIG_TAG, "NVS open failed: %s", esp_err_to_name(err));
         return err;
     }
 
@@ -158,10 +160,14 @@ esp_err_t device_config_load(device_config_t *cfg)
 
     nvs_close(handle);
     if (err != ESP_OK) {
+        ESP_LOGE(DEVICE_CONFIG_TAG, "Config load failed: %s", esp_err_to_name(err));
         device_config_free(cfg);
         return err;
     }
 
+    ESP_LOGI(DEVICE_CONFIG_TAG, "Config loaded: state=%s provisioned=%s",
+             device_config_state_name(cfg),
+             device_config_is_provisioned(cfg) ? "yes" : "no");
     return ESP_OK;
 }
 
@@ -228,6 +234,7 @@ esp_err_t device_config_store_provisioning(const device_provisioning_t *prov)
         return err;
     }
 
+    ESP_LOGI(DEVICE_CONFIG_TAG, "Storing provisioning data (SSID=%s)", prov->wifi_ssid);
     err = nvs_set_u8(handle, KEY_SCHEMA_VER, DEVICE_CONFIG_SCHEMA_VERSION);
     if (err == ESP_OK) err = nvs_set_str(handle, KEY_WIFI_SSID, prov->wifi_ssid);
     if (err == ESP_OK) err = nvs_set_str(handle, KEY_WIFI_PWD, prov->wifi_pwd);

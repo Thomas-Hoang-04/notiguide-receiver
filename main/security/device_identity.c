@@ -126,13 +126,16 @@ static esp_err_t device_identity_load_or_generate(device_identity_t *identity)
 
     if (err == ESP_OK) {
         if (mbedtls_pk_parse_key(&identity->device_key, priv_der, priv_len, NULL, 0) != 0) {
+            ESP_LOGE(DEVICE_IDENTITY_TAG, "Failed to parse stored device key");
             err = ESP_FAIL;
         } else {
+            ESP_LOGI(DEVICE_IDENTITY_TAG, "Device key loaded from NVS");
             identity->device_key_ready = true;
         }
     }
 
     if (err == ESP_ERR_NVS_NOT_FOUND) {
+        ESP_LOGI(DEVICE_IDENTITY_TAG, "No device key in NVS, generating new EC P-256 keypair");
         uint8_t priv_buf[256];
         uint8_t pub_buf[160];
         int priv_written;
@@ -221,13 +224,17 @@ esp_err_t device_identity_init(device_identity_t *identity)
                               &identity->entropy,
                               (const unsigned char *)pers,
                               strlen(pers)) != 0) {
+        ESP_LOGE(DEVICE_IDENTITY_TAG, "DRBG seed failed");
         return ESP_FAIL;
     }
 
     if (device_identity_load_or_generate(identity) != ESP_OK) {
+        ESP_LOGE(DEVICE_IDENTITY_TAG, "Key load/generate failed");
         return ESP_FAIL;
     }
 
+    ESP_LOGI(DEVICE_IDENTITY_TAG, "Backend pubkey: %s",
+             CONFIG_RECEIVER_BACKEND_PUBKEY_B64[0] ? "configured" : "NOT SET");
     return load_backend_pubkey(identity);
 }
 

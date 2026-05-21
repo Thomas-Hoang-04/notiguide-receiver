@@ -13,6 +13,7 @@
 
 #include "cJSON.h"
 #include "esp_http_server.h"
+#include "esp_log.h"
 #include "freertos/event_groups.h"
 
 #include "config/device_config.h"
@@ -215,9 +216,11 @@ static esp_err_t provision_post(httpd_req_t *req)
     err = device_config_store_provisioning(&prov);
     cJSON_Delete(root);
     if (err != ESP_OK) {
+        ESP_LOGE(HTTP_SERVER_TAG, "Failed to persist provisioning data");
         return send_error(req, "persist failed");
     }
 
+    ESP_LOGI(HTTP_SERVER_TAG, "Provisioning data saved (SSID=%s)", prov.wifi_ssid);
     httpd_resp_set_type(req, "application/json");
     err = httpd_resp_send(req, "{\"status\":\"ok\"}", strlen("{\"status\":\"ok\"}"));
     if (err == ESP_OK && s_events) {
@@ -298,6 +301,7 @@ esp_err_t http_server_start(void)
 
     err = httpd_start(&s_server, &config);
     if (err != ESP_OK) {
+        ESP_LOGE(HTTP_SERVER_TAG, "httpd_start failed: %s", esp_err_to_name(err));
         return err;
     }
 
@@ -306,6 +310,7 @@ esp_err_t http_server_start(void)
     httpd_register_uri_handler(s_server, &provision_uri);
     httpd_register_uri_handler(s_server, &retry_uri);
     httpd_register_uri_handler(s_server, &reset_uri);
+    ESP_LOGI(HTTP_SERVER_TAG, "Provisioning server started on port %d", config.server_port);
     return ESP_OK;
 }
 

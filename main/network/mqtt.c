@@ -23,6 +23,8 @@
 #include "trigger/rf_supervisor.h"
 #include "trigger/rf_trigger.h"
 
+#define TOPIC_PREFIX CONFIG_RECEIVER_MQTT_TOPIC_PREFIX "/"
+
 #define MQTT_CONNECTED_BIT BIT0
 #define MQTT_FAILED_BIT BIT1
 #define MQTT_CONNECT_TIMEOUT_MS (45 * 1000)
@@ -173,7 +175,7 @@ static esp_err_t publish_rf_ack(const char *public_id,
     }
 
     format_applied_at(applied_at, sizeof(applied_at), fallback_time);
-    snprintf(topic, sizeof(topic), "receiver/device/%s/ack", public_id);
+    snprintf(topic, sizeof(topic), TOPIC_PREFIX "receiver/device/%s/ack", public_id);
 
     cJSON_AddNumberToObject(root, "schema_version", 1);
     cJSON_AddStringToObject(root, "ack_for", "rf_code");
@@ -202,7 +204,7 @@ static esp_err_t publish_deact_ack(const char *public_id,
     }
 
     format_applied_at(applied_at, sizeof(applied_at), fallback_time);
-    snprintf(topic, sizeof(topic), "receiver/device/%s/ack", public_id);
+    snprintf(topic, sizeof(topic), TOPIC_PREFIX "receiver/device/%s/ack", public_id);
 
     cJSON_AddNumberToObject(root, "schema_version", 1);
     cJSON_AddStringToObject(root, "ack_for", "deact");
@@ -287,7 +289,7 @@ static esp_err_t publish_bootstrap_registration(const device_config_t *cfg)
     cJSON_AddStringToObject(root, "enrollment_token", cfg->enroll_token);
     cJSON_AddStringToObject(root, "registration_nonce", s_bootstrap.registration_nonce);
 
-    err = publish_json("receiver/bootstrap/register", root);
+    err = publish_json(TOPIC_PREFIX "receiver/bootstrap/register", root);
     cJSON_Delete(root);
     free(public_key_b64);
     return err;
@@ -317,11 +319,11 @@ static void handle_bootstrap_message(cJSON *root)
         free(registration_nonce);
 
         if (!s_bootstrap.challenge_id) {
-            char wildcard_topic[] = "receiver/bootstrap/+";
+            char wildcard_topic[] = TOPIC_PREFIX "receiver/bootstrap/+";
             char exact_topic[128];
 
             s_bootstrap.challenge_id = strdup(challenge_id);
-            snprintf(exact_topic, sizeof(exact_topic), "receiver/bootstrap/%s", challenge_id);
+            snprintf(exact_topic, sizeof(exact_topic), TOPIC_PREFIX "receiver/bootstrap/%s", challenge_id);
             mqtt_unsubscribe(wildcard_topic);
             mqtt_subscribe(exact_topic, 1);
         }
@@ -357,7 +359,7 @@ static void handle_bootstrap_message(cJSON *root)
                                                      &signature_b64) == ESP_OK) {
             response = cJSON_CreateObject();
             if (response) {
-                snprintf(exact_topic, sizeof(exact_topic), "receiver/bootstrap/%s", challenge_id);
+                snprintf(exact_topic, sizeof(exact_topic), TOPIC_PREFIX "receiver/bootstrap/%s", challenge_id);
                 cJSON_AddNumberToObject(response, "schema_version", 1);
                 cJSON_AddStringToObject(response, "type", "response");
                 cJSON_AddStringToObject(response, "challenge_id", challenge_id);
@@ -574,7 +576,7 @@ static void on_mqtt_message(const char *topic, const char *payload, int payload_
         return;
     }
 
-    if (strncmp(topic, "receiver/bootstrap/", 19) == 0) {
+    if (strncmp(topic, TOPIC_PREFIX "receiver/bootstrap/", sizeof(TOPIC_PREFIX "receiver/bootstrap/") - 1) == 0) {
         handle_bootstrap_message(root);
     } else if (strstr(topic, "/cmd/rf_code") != NULL) {
         handle_rf_code_command(root);
@@ -703,18 +705,23 @@ esp_err_t mqtt_start(const device_config_t *cfg,
     mqtt_cfg.protocol_ver = MQTT_PROTOCOL_V_3_1_1;
     mqtt_cfg.reconnect_timeout_ms = 5000;
 
+    ESP_LOGI(MQTT_TAG, "Connecting to %s (client_id=%s)",
+             cfg->mqtt_uri, cfg->has_public_id ? cfg->public_id : "auto");
     s_client = esp_mqtt_client_init(&mqtt_cfg);
     if (!s_client) {
+        ESP_LOGE(MQTT_TAG, "Client init failed");
         return ESP_FAIL;
     }
 
     if (esp_mqtt_client_register_event(s_client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL) != ESP_OK) {
+        ESP_LOGE(MQTT_TAG, "Event registration failed");
         esp_mqtt_client_destroy(s_client);
         s_client = NULL;
         return ESP_FAIL;
     }
 
     if (esp_mqtt_client_start(s_client) != ESP_OK) {
+        ESP_LOGE(MQTT_TAG, "Client start failed");
         esp_mqtt_client_destroy(s_client);
         s_client = NULL;
         return ESP_FAIL;
@@ -730,6 +737,9 @@ esp_err_t mqtt_start(const device_config_t *cfg,
             return ESP_OK;
         }
 
+        ESP_LOGE(MQTT_TAG, "Connection %s (timeout=%dms)",
+                 (bits & MQTT_FAILED_BIT) ? "rejected" : "timed out",
+                 MQTT_CONNECT_TIMEOUT_MS);
         mqtt_stop();
         return (bits & MQTT_FAILED_BIT) != 0 ? ESP_FAIL : ESP_ERR_TIMEOUT;
     }
@@ -842,7 +852,8 @@ esp_err_t mqtt_receiver_subscribe_commands(const char *public_id)
         return ESP_ERR_INVALID_ARG;
     }
 
-    snprintf(topic, sizeof(topic), "receiver/device/%s/cmd/#", public_id);
+    snprintf(topic, sizeof(topic), TOPIC_PREFIX "receiver/device/%s/cmd/#", public_id);
+    ESP_LOGI(MQTT_TAG, "Subscribing: %s", topic);
     return mqtt_subscribe(topic, 1);
 }
 
@@ -859,7 +870,7 @@ esp_err_t mqtt_receiver_bootstrap_activate(const device_config_t *cfg)
         return ESP_FAIL;
     }
 
-    if (mqtt_subscribe("receiver/bootstrap/+", 1) != ESP_OK) {
+    if (mqtt_subscribe(TOPIC_PREFIX "receiver/bootstrap/+", 1) != ESP_OK) {
         return ESP_FAIL;
     }
     if (publish_bootstrap_registration(cfg) != ESP_OK) {
@@ -877,7 +888,7 @@ esp_err_t mqtt_receiver_bootstrap_activate(const device_config_t *cfg)
                                                        RECEIVER_OP_STATE_PENDING_RF_CODE);
         char challenge_topic[128];
 
-        snprintf(challenge_topic, sizeof(challenge_topic), "receiver/bootstrap/%s", s_bootstrap.challenge_id);
+        snprintf(challenge_topic, sizeof(challenge_topic), TOPIC_PREFIX "receiver/bootstrap/%s", s_bootstrap.challenge_id);
         mqtt_unsubscribe(challenge_topic);
         bootstrap_session_reset();
         return err;

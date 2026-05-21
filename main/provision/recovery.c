@@ -66,11 +66,13 @@ provision_recovery_result_t provision_run_recovery_mode(provision_recovery_reaso
         }
 
         if (action == HTTP_SERVER_ACTION_RETRY) {
+            ESP_LOGI(RECOVERY_TAG, "User requested retry with existing config");
             ESP_ERROR_CHECK(wifi_stop());
             s_active_recovery_reason = NULL;
             return PROVISION_RECOVERY_RESULT_RETRY_EXISTING;
         }
 
+        ESP_LOGI(RECOVERY_TAG, "Restarting after provisioning/reset");
         s_active_recovery_reason = NULL;
         return PROVISION_RECOVERY_RESULT_RESTART;
     }

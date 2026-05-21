@@ -37,4 +37,8 @@ config RECEIVER_BACKEND_PUBKEY_B64
         boots the firmware but every cmd/* will be rejected
         with status=rejected at verification time.
 
+config RECEIVER_MQTT_TOPIC_PREFIX
+    string "MQTT topic prefix"
+    default "notiguide"
+
 endmenu
