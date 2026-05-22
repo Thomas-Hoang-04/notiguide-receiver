@@ -183,7 +183,10 @@ static bool handle_provision(const char *id, const cJSON *cmd_payload)
     cJSON *resp = cJSON_CreateObject();
     cJSON_AddBoolToObject(resp, "restarting", true);
     send_response(id, true, resp, NULL);
-    return true;
+
+    usb_serial_jtag_wait_tx_done(pdMS_TO_TICKS(250));
+    esp_restart();
+    return false;
 }
 
 static void handle_test_wifi(const char *id, const cJSON *cmd_payload)
