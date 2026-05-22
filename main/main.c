@@ -25,7 +25,7 @@
 #include "vibrator/vibrator.h"
 
 #ifndef PROJECT_VER
-#define PROJECT_VER "v1"
+#define PROJECT_VER CONFIG_RECEIVER_FIRMWARE_VERSION
 #endif
 
 #define MAIN_TAG "MAIN"

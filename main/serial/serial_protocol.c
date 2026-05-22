@@ -183,6 +183,7 @@ static void handle_test_wifi(const char *id, const cJSON *cmd_payload)
         return;
     }
     const char *pwd = json_get_string(cmd_payload, "wifi_pwd");
+    ESP_LOGI(TAG, "wifi test: ssid=%s pwd_len=%d", ssid, pwd ? (int)strlen(pwd) : 0);
 
     esp_err_t err = wifi_start_sta_test(ssid, pwd, pdMS_TO_TICKS(15000));
 

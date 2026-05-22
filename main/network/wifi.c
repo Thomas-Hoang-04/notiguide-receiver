@@ -161,7 +161,7 @@ esp_err_t wifi_start_sta(const char *ssid, const char *password)
             },
             .pmf_cfg = {
                 .capable = true,
-                .required = false,
+                .required = true,
             },
         },
     };
@@ -239,7 +239,7 @@ esp_err_t wifi_start_sta_test(const char *ssid, const char *password, TickType_t
 
     wifi_config_t wifi_cfg = {
         .sta = {
-            .scan_method = WIFI_FAST_SCAN,
+            .scan_method = WIFI_ALL_CHANNEL_SCAN,
             .sort_method = WIFI_CONNECT_AP_BY_SIGNAL,
             .threshold = {
                 .rssi = -127,
@@ -247,7 +247,7 @@ esp_err_t wifi_start_sta_test(const char *ssid, const char *password, TickType_t
             },
             .pmf_cfg = {
                 .capable = true,
-                .required = false,
+                .required = true
             },
         },
     };
