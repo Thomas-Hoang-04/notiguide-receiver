@@ -208,7 +208,7 @@ static esp_err_t mqtt_publish_register(void)
     cJSON_AddStringToObject(json, "hardware_model", "ESP32-C3");
     cJSON_AddStringToObject(json, "receiver_type",
                             device_config_receiver_type_string(device_config_compiled_receiver_type()));
-    cJSON_AddStringToObject(json, "firmware_version", "dev");
+    cJSON_AddStringToObject(json, "firmware_version", CONFIG_RECEIVER_FIRMWARE_VERSION);
     cJSON_AddStringToObject(json, "public_key_b64",
                             device_identity_public_key_b64(s_mqtt.identity));
     cJSON_AddStringToObject(json, "enrollment_token", s_mqtt.cfg->enroll_token);
