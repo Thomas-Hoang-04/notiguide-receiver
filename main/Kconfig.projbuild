@@ -44,7 +44,7 @@ config RECEIVER_NRF24_CE
 
 config RECEIVER_NRF24_IRQ
     int "nRF24 IRQ GPIO"
-    default 1
+    default 10
     depends on RECEIVER_RADIO_2_4G
 
 config RECEIVER_NRF24_CHANNEL
@@ -80,7 +80,7 @@ config RECEIVER_NRF24_ENABLE_DPL
 
 config RECEIVER_VIBRATOR_GPIO
     int "Vibrator GPIO"
-    default 10
+    default 1
 
 config RECEIVER_AP_CHANNEL
     int "SoftAP channel"

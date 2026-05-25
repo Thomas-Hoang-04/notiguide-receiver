@@ -126,6 +126,7 @@ void app_main(void)
     }
 
     ESP_ERROR_CHECK(rf_trigger_init((gpio_num_t)CONFIG_RECEIVER_VIBRATOR_GPIO));
+    rf_trigger_stop_output();
     restore_trigger_state();
 
     if (wifi_start_sta(&g_cfg) != ESP_OK) {
