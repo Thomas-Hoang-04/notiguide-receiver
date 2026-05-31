@@ -1,5 +1,9 @@
 # Receiver Device Design Guide — ESP32-C3 Port
 
+> Historical reference: the current firmware follows
+> `docs/Receiver ESP32-C3 Local Pairing Plan.md` and no longer implements
+> this guide's WiFi, MQTT, provisioning, or backend activation lifecycle.
+
 Authoritative end-to-end design guide for the **ESP32-C3 receiver**
 firmware and its backend contract. The target firmware runs on
 **ESP-IDF v6.0** and supports **dual radio** hardware

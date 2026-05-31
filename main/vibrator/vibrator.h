@@ -81,12 +81,4 @@ esp_err_t vibrator_pulse(VibratorHandler* vibrator_handler);
  */
 esp_err_t vibrator_set_pulsing(VibratorHandler* vibrator_handler, bool enabled);
 
-/**
- * @brief Toggle continuous pulsing.
- *
- * @param vibrator_handler Vibrator handler structure
- * @return ESP_OK on success, error code otherwise
- */
-esp_err_t vibrator_toggle_pulsing(VibratorHandler* vibrator_handler);
-
 #endif

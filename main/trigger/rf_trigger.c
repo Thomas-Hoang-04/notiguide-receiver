@@ -15,7 +15,7 @@
 #include "vibrator/vibrator.h"
 
 #define RF_TRIGGER_TAG "RF_TRIGGER"
-#define RF_TRIGGER_TOGGLE_DEBOUNCE_US (1200 * 1000)
+#define RF_TRIGGER_DEBOUNCE_US (1200 * 1000)
 
 typedef struct {
     uint8_t code[DEVICE_CONFIG_MAX_RF_CODE_LEN];
@@ -28,7 +28,7 @@ typedef struct {
 static SemaphoreHandle_t s_mutex;
 static VibratorHandler s_vibrator;
 static rf_trigger_state_t s_trigger;
-static int64_t s_last_toggle_us;
+static int64_t s_last_trigger_us;
 
 static bool copy_state(rf_trigger_state_t *out)
 {
@@ -141,35 +141,44 @@ void rf_trigger_on_frame(uint32_t value, uint8_t value_bits)
         return;
     }
 
-    uint32_t expected = (uint32_t)state.code[0]
-                      | ((uint32_t)state.code[1] << 8)
-                      | ((uint32_t)state.code[2] << 16)
-                      | ((uint32_t)state.code[3] << 24);
-    uint32_t mask = state.bits >= 32 ? UINT32_MAX : ((1UL << state.bits) - 1UL);
-
-    if ((value & mask) != (expected & mask)) {
+    const size_t required_bytes = ((size_t)state.bits + 7U) / 8U;
+    if (state.code_len < required_bytes || required_bytes > sizeof(uint32_t)) {
         return;
     }
 
-    if (esp_timer_get_time() - s_last_toggle_us < RF_TRIGGER_TOGGLE_DEBOUNCE_US) {
+    uint32_t expected = 0;
+    for (size_t i = 0; i < required_bytes; ++i) {
+        expected = (expected << 8) | state.code[i];
+    }
+    uint8_t action_bit = (value >> 31) & 1U;
+    uint32_t code_only = value & 0x7FFFFFFFU;
+    uint32_t exp_masked = expected & 0x7FFFFFFFU;
+    uint32_t mask = state.bits >= 32 ? 0x7FFFFFFFU : ((1UL << state.bits) - 1UL);
+
+    if ((code_only & mask) != (exp_masked & mask)) {
         return;
     }
 
-    ESP_LOGI(RF_TRIGGER_TAG, "RF match on %u bits", value_bits);
-    if (vibrator_toggle_pulsing(&s_vibrator) != ESP_OK) {
-        ESP_LOGE(RF_TRIGGER_TAG, "failed to toggle vibrator pulsing");
+    if (esp_timer_get_time() - s_last_trigger_us < RF_TRIGGER_DEBOUNCE_US) {
         return;
     }
-    s_last_toggle_us = esp_timer_get_time();
+
+    bool start = (action_bit == 0);
+    ESP_LOGI(RF_TRIGGER_TAG, "RF match on %u bits, action=%s", value_bits, start ? "start" : "stop");
+    if (vibrator_set_pulsing(&s_vibrator, start) != ESP_OK) {
+        ESP_LOGE(RF_TRIGGER_TAG, "failed to set vibrator pulsing");
+        return;
+    }
+    s_last_trigger_us = esp_timer_get_time();
 }
 
 void rf_trigger_on_packet(const uint8_t *pkt, size_t pkt_len)
 {
-    if (pkt == NULL || pkt_len < 2U) {
+    if (pkt == NULL || pkt_len < 3U) {
         return;
     }
-    if (pkt[0] != RF_TRIGGER_TOGGLE_MAGIC_HI || pkt[1] != RF_TRIGGER_TOGGLE_MAGIC_LO) {
+    if (pkt[0] != RF_TRIGGER_DISPATCH_MAGIC_HI || pkt[1] != RF_TRIGGER_DISPATCH_MAGIC_LO) {
         return;
     }
-    vibrator_toggle_pulsing(&s_vibrator);
+    vibrator_set_pulsing(&s_vibrator, pkt[2] == 0x01);
 }

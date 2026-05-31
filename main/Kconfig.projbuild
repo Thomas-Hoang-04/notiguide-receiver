@@ -54,10 +54,6 @@ config RECEIVER_NRF24_CHANNEL
     depends on RECEIVER_RADIO_2_4G
     help
         nRF24 RF channel: f = 2400 MHz + N. Must match the transmitter.
-        Lower bound 97 keeps the center >= 2497 MHz, above JP Wi-Fi
-        channel 14's upper edge (2495 MHz) with >= 1 MHz guard at
-        2 Mbps. Upper bound 125 (2525 MHz) is the silicon limit. Verify local
-        ISM rules before deployment.
 
 choice RECEIVER_NRF24_DATA_RATE
     prompt "nRF24 air data rate"
@@ -77,49 +73,24 @@ config RECEIVER_NRF24_ENABLE_DPL
     default y
     depends on RECEIVER_RADIO_2_4G
 
-
 config RECEIVER_VIBRATOR_GPIO
     int "Vibrator GPIO"
     default 1
 
-config RECEIVER_AP_CHANNEL
-    int "SoftAP channel"
-    default 1
-
-config RECEIVER_AP_PASSWORD
-    string "SoftAP password"
-    default "setup1234"
-
-config RECEIVER_WIFI_MAX_RETRY
-    int "STA max retries before SoftAP fallback"
-    default 6
-
-config RECEIVER_BOOTSTRAP_TIMEOUT_MS
-    int "Bootstrap timeout in milliseconds"
-    default 120000
-
-config RECEIVER_BACKEND_PUBKEY_B64
-    string "Backend command-signing public key (base64-DER EC P-256)"
+config RECEIVER_PAIR_PSK
+    string "Pairing pre-shared key (64 hex chars = 32 bytes)"
     default ""
     help
-        Base64-encoded DER-form EC P-256 public key used to verify all
-        backend-signed cmd/* payloads.
-        Generate a matching backend keypair with:
-          openssl ecparam -name prime256v1 -genkey -noout -out cmd_signing_priv.pem
-          openssl pkey -in cmd_signing_priv.pem -pubout -outform DER | base64 -w0
-        Paste the second command's output directly into this setting.
-        Keep cmd_signing_priv.pem out of source control. Leaving this
-        empty causes device identity initialization to fail at boot.
+        Shared secret for HMAC-SHA256 verification during ESP-NOW
+        pairing. Must be exactly 64 hexadecimal characters (32 bytes).
+        Must match the transmitter hub's CONFIG_TRANSMITTER_PAIR_PSK.
 
-config RECEIVER_MQTT_TOPIC_PREFIX
-    string "MQTT topic prefix"
-    default "notiguide"
-
-config RECEIVER_FIRMWARE_VERSION
-    string "Firmware version"
-    default "dev"
+config RECEIVER_PAIR_CHANNEL_SCAN_MS
+    int "ESP-NOW channel scan dwell time (ms)"
+    default 300
+    range 100 1000
     help
-        Semantic version string exposed via the serial protocol identify
-        command and available as CONFIG_RECEIVER_FIRMWARE_VERSION.
+        How long to listen on each WiFi channel during pairing scan.
+        Full 13-channel scan takes this value x 13.
 
 endmenu

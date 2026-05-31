@@ -14,8 +14,8 @@
 #include "config/device_config.h"
 
 /* Magic bytes the hub sends in every 2.4G dispatch payload. */
-#define RF_TRIGGER_TOGGLE_MAGIC_HI 0xAAU
-#define RF_TRIGGER_TOGGLE_MAGIC_LO 0x55U
+#define RF_TRIGGER_DISPATCH_MAGIC_HI 0xAAU
+#define RF_TRIGGER_DISPATCH_MAGIC_LO 0x55U
 
 /**
  * @brief Initialize the shared trigger matcher and vibrator output.
@@ -38,7 +38,7 @@ esp_err_t rf_trigger_deinit(void);
  * @param code RF code bytes
  * @param code_len Number of valid bytes in @p code
  * @param bits RF code width in bits
- * @param version Monotonic version for the active `public_id`
+ * @param version Monotonic version for the paired RF code
  * @return ESP_OK on success, error code otherwise
  */
 esp_err_t rf_trigger_set(const uint8_t *code, size_t code_len, uint8_t bits, uint32_t version);

@@ -193,20 +193,6 @@ esp_err_t vibrator_set_pulsing(VibratorHandler* vibrator_handler, bool enabled)
     return ESP_OK;
 }
 
-esp_err_t vibrator_toggle_pulsing(VibratorHandler* vibrator_handler)
-{
-    ESP_RETURN_ON_FALSE(vibrator_handler, ESP_ERR_INVALID_ARG, VIBRATOR_TAG, "Invalid vibrator handler");
-    ESP_RETURN_ON_FALSE(vibrator_lock(vibrator_handler), ESP_ERR_INVALID_STATE, VIBRATOR_TAG, "Failed to lock state");
-    if (!vibrator_handler->vibrator_initialized) {
-        vibrator_unlock(vibrator_handler);
-        return ESP_ERR_INVALID_STATE;
-    }
-    bool next = !vibrator_handler->vibrator_pulsing;
-    vibrator_unlock(vibrator_handler);
-
-    return vibrator_set_pulsing(vibrator_handler, next);
-}
-
 esp_err_t vibrator_deinit(VibratorHandler* vibrator_handler)
 {
     ESP_RETURN_ON_FALSE(vibrator_handler, ESP_ERR_INVALID_ARG, VIBRATOR_TAG, "Invalid vibrator handler");
