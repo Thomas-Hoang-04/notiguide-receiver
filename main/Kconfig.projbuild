@@ -1,51 +1,31 @@
 menu "Receiver Configuration"
 
-config RECEIVER_WIFI_MAX_RETRY
-    int "Wi-Fi STA maximum retry"
-    default 5
+config RECEIVER_VIBRATOR_GPIO
+    int "Vibrator GPIO"
+    default 2
     help
-        Number of reconnect attempts before falling back to SoftAP
-        provisioning mode.
+        GPIO for the vibrator output. Default GPIO2 on ESP-01.
 
-config RECEIVER_AP_PASSWORD
-    string "SoftAP provisioning password"
-    default "receiver-setup"
+config RECEIVER_RF433_RX_GPIO
+    int "433 MHz RX GPIO"
+    default 0
     help
-        WPA2-PSK password for the provisioning SoftAP. Must be 8-63 chars.
-        ESP8266 hardware does not support WPA3 in AP mode, so WPA2-PSK is
-        the strongest option here.
+        GPIO for 433 MHz ASK receiver data input. Default GPIO0 on ESP-01.
 
-config RECEIVER_AP_CHANNEL
-    int "SoftAP channel"
-    range 1 13
-    default 1
-    help
-        Wi-Fi channel used by the provisioning SoftAP.
-
-config RECEIVER_BACKEND_PUBKEY_B64
-    string "Backend command-signing public key (base64-DER EC P-256)"
+config RECEIVER_PAIR_PSK
+    string "Pairing pre-shared key (64 hex chars = 32 bytes)"
     default ""
     help
-        Base64-encoded DER-form EC P-256 public key used to verify
-        every cmd/* payload (see RECEIVER_DESIGN_GUIDE.md §3.7).
-        Generate the keypair externally:
-          openssl ecparam -name prime256v1 -genkey -noout \
-            -out cmd_signing_priv.pem
-          openssl pkey -in cmd_signing_priv.pem -pubout -outform DER \
-            | base64 -w0
-        Paste the single-line base64 output here. Leaving this empty
-        boots the firmware but every cmd/* will be rejected
-        with status=rejected at verification time.
+        Shared secret for HMAC-SHA256 verification during ESP-NOW
+        pairing. Must be exactly 64 hexadecimal characters (32 bytes).
+        Must match the transmitter hub's CONFIG_TRANSMITTER_PAIR_PSK.
 
-config RECEIVER_MQTT_TOPIC_PREFIX
-    string "MQTT topic prefix"
-    default "notiguide"
-
-config RECEIVER_FIRMWARE_VERSION
-    string "Firmware version"
-    default "dev"
+config RECEIVER_PAIR_CHANNEL_SCAN_MS
+    int "ESP-NOW channel scan dwell time (ms)"
+    default 300
+    range 100 1000
     help
-        Semantic version string exposed via the serial protocol identify
-        command and available as CONFIG_RECEIVER_FIRMWARE_VERSION.
+        How long to listen on each WiFi channel during pairing scan.
+        Full 13-channel scan takes this value x 13.
 
 endmenu

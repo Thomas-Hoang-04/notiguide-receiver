@@ -97,6 +97,5 @@ esp_err_t vibrator_stop(VibratorHandler* vibrator_handler);
  */
 esp_err_t vibrator_pulse(VibratorHandler* vibrator_handler);
 esp_err_t vibrator_set_pulsing(VibratorHandler* vibrator_handler, bool enabled);
-esp_err_t vibrator_toggle_pulsing(VibratorHandler* vibrator_handler);
 
 #endif

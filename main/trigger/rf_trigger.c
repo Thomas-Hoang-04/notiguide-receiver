@@ -13,12 +13,12 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 
-#define RF_TRIGGER_TOGGLE_DEBOUNCE_US (1200 * 1000)
+#define RF_TRIGGER_DEBOUNCE_US (1200 * 1000)
 
 static SemaphoreHandle_t s_trigger_mutex;
 static VibratorHandler *s_vibrator;
 static rf_trigger_snapshot_t s_trigger;
-static int64_t s_last_toggle_us;
+static int64_t s_last_trigger_us;
 
 esp_err_t rf_trigger_init(VibratorHandler *vibrator)
 {
@@ -50,7 +50,7 @@ void rf_trigger_deinit(void)
     s_trigger.code = 0;
     s_trigger.bits = 0;
     s_trigger.version = 0;
-    s_last_toggle_us = 0;
+    s_last_trigger_us = 0;
 }
 
 void rf_trigger_stop_output(void)
@@ -58,7 +58,7 @@ void rf_trigger_stop_output(void)
     if (s_vibrator) {
         vibrator_set_pulsing(s_vibrator, false);
     }
-    s_last_toggle_us = 0;
+    s_last_trigger_us = 0;
 }
 
 void rf_trigger_set(uint32_t code, uint8_t bits, uint32_t version)
@@ -112,6 +112,10 @@ rf_trigger_snapshot_t rf_trigger_snapshot(void)
 
 void rf_trigger_on_frame(uint32_t decoded, uint8_t decoded_bits, void *ctx)
 {
+    bool start;
+    uint8_t action_bit;
+    uint32_t code_only;
+    uint32_t exp_masked;
     uint32_t mask;
     rf_trigger_snapshot_t snapshot = rf_trigger_snapshot();
 
@@ -120,20 +124,28 @@ void rf_trigger_on_frame(uint32_t decoded, uint8_t decoded_bits, void *ctx)
     if (!snapshot.bits || !s_vibrator) {
         return;
     }
-
-    mask = (snapshot.bits >= 32) ? UINT32_MAX : ((1u << snapshot.bits) - 1u);
-    if ((decoded & mask) != (snapshot.code & mask)) {
+    if (decoded_bits < snapshot.bits) {
         return;
     }
 
-    if (esp_timer_get_time() - s_last_toggle_us < RF_TRIGGER_TOGGLE_DEBOUNCE_US) {
+    action_bit = (decoded >> 31) & 1u;
+    code_only = decoded & 0x7FFFFFFFu;
+    exp_masked = snapshot.code & 0x7FFFFFFFu;
+    mask = (snapshot.bits >= 32) ? 0x7FFFFFFFu : ((1u << snapshot.bits) - 1u);
+
+    if ((code_only & mask) != (exp_masked & mask)) {
         return;
     }
 
-    ESP_LOGI(RF_TRIGGER_TAG, "RF match on %u bits", decoded_bits);
-    if (vibrator_toggle_pulsing(s_vibrator) != ESP_OK) {
-        ESP_LOGE(RF_TRIGGER_TAG, "Failed to toggle vibrator pulsing");
+    if (esp_timer_get_time() - s_last_trigger_us < RF_TRIGGER_DEBOUNCE_US) {
         return;
     }
-    s_last_toggle_us = esp_timer_get_time();
+
+    start = (action_bit == 0);
+    ESP_LOGI(RF_TRIGGER_TAG, "RF match on %u bits, action=%s", decoded_bits, start ? "start" : "stop");
+    if (vibrator_set_pulsing(s_vibrator, start) != ESP_OK) {
+        ESP_LOGE(RF_TRIGGER_TAG, "Failed to set vibrator pulsing");
+        return;
+    }
+    s_last_trigger_us = esp_timer_get_time();
 }

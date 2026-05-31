@@ -1,275 +1,54 @@
 /**
  * @file main.c
- * @brief Receiver Application Entry Point and Orchestration
+ * @brief Receiver Application Entry Point
  *
- * Coordinates provisioning, activation, RF trigger restoration, and steady-
- * state receiver operation for the ESP-01 firmware.
+ * Two-phase startup: NVS + config + vibrator init, then either ESP-NOW pairing
+ * (if not yet paired) or direct RF listener bring-up.
  */
 
-#include "esp_event.h"
-#include "esp_log.h"
-#include "esp_netif.h"
-#include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "nvs_flash.h"
+
+#include "esp_log.h"
 
 #include "config/device_config.h"
-#include "network/mqtt.h"
-#include "network/wifi.h"
-#include "serial/serial_protocol.h"
+#include "pair/espnow_pair.h"
 #include "rf/rf_common.h"
-#include "security/device_identity.h"
 #include "trigger/rf_supervisor.h"
 #include "trigger/rf_trigger.h"
 #include "vibrator/vibrator.h"
 
-#ifndef PROJECT_VER
-#define PROJECT_VER CONFIG_RECEIVER_FIRMWARE_VERSION
-#endif
+#define TAG "APP"
 
-#define MAIN_TAG "MAIN"
-#define VIBRATOR_GPIO GPIO_NUM_2
-
-RFHandler g_rf = { .rx_active = false, .rx_suspended = false, .rx_gpio = -1 };
-static VibratorHandler s_vibrator = { .vibrator_task_handle = NULL, .state_lock = NULL };
-static device_identity_t s_identity = { .device_key_ready = false, .backend_key_ready = false };
-
-static void restart_after_response_flush(void)
-{
-    vTaskDelay(pdMS_TO_TICKS(250));
-    esp_restart();
-}
-
-static esp_err_t init_platform_once(void)
-{
-    esp_err_t err;
-
-    ESP_LOGI(MAIN_TAG, "NVS init");
-    err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_LOGW(MAIN_TAG, "NVS partition dirty, erasing");
-        err = nvs_flash_erase();
-        if (err != ESP_OK) {
-            ESP_LOGE(MAIN_TAG, "NVS erase failed: %s", esp_err_to_name(err));
-            return err;
-        }
-        err = nvs_flash_init();
-    }
-    if (err != ESP_OK) {
-        ESP_LOGE(MAIN_TAG, "NVS init failed: %s", esp_err_to_name(err));
-        return err;
-    }
-
-    ESP_LOGI(MAIN_TAG, "TCP/IP adapter init");
-    err = esp_netif_init();
-    if (err != ESP_OK) {
-        ESP_LOGE(MAIN_TAG, "Netif init failed: %s", esp_err_to_name(err));
-        return err;
-    }
-
-    err = esp_event_loop_create_default();
-    if (err != ESP_OK) {
-        ESP_LOGE(MAIN_TAG, "Event loop failed: %s", esp_err_to_name(err));
-        return err;
-    }
-
-    ESP_LOGI(MAIN_TAG, "Vibrator init on GPIO %d", VIBRATOR_GPIO);
-    err = vibrator_init(VIBRATOR_GPIO, &s_vibrator);
-    if (err != ESP_OK) {
-        ESP_LOGE(MAIN_TAG, "Vibrator init failed: %s", esp_err_to_name(err));
-        return err;
-    }
-
-    ESP_LOGI(MAIN_TAG, "RF trigger init");
-    err = rf_trigger_init(&s_vibrator);
-    if (err != ESP_OK) {
-        ESP_LOGE(MAIN_TAG, "RF trigger init failed: %s", esp_err_to_name(err));
-        return err;
-    }
-
-    rf_recv_set_frame_callback(rf_trigger_on_frame, NULL);
-
-    ESP_LOGI(MAIN_TAG, "WiFi init");
-    err = wifi_init();
-    if (err != ESP_OK) {
-        ESP_LOGE(MAIN_TAG, "WiFi init failed: %s", esp_err_to_name(err));
-        return err;
-    }
-
-    ESP_LOGI(MAIN_TAG, "Device identity init");
-    err = device_identity_init(&s_identity);
-    if (err != ESP_OK) {
-        ESP_LOGE(MAIN_TAG, "Identity init failed: %s", esp_err_to_name(err));
-        return err;
-    }
-
-    ESP_LOGI(MAIN_TAG, "MQTT init");
-    return mqtt_receiver_init(&s_identity, PROJECT_VER);
-}
-
-static esp_err_t load_runtime_config(device_config_t *cfg)
-{
-    device_config_free(cfg);
-    return device_config_load(cfg);
-}
-
-static void restore_rf_snapshot(const device_config_t *cfg)
-{
-    if (cfg->has_rf_code && cfg->rf_code_bits > 0) {
-        rf_trigger_restore(cfg->rf_code, cfg->rf_code_bits, cfg->rf_code_ver);
-    }
-}
-
-static esp_err_t attempt_wifi_stage(const device_config_t *cfg)
-{
-    return wifi_start_sta(cfg->wifi_ssid, cfg->wifi_pwd);
-}
-
-static esp_err_t attempt_mqtt_stage(const device_config_t *cfg)
-{
-    return mqtt_receiver_start(cfg);
-}
-
-static esp_err_t attempt_activation_stage(device_config_t *cfg)
-{
-    esp_err_t err;
-
-    if (cfg->has_public_id && cfg->has_op_state) {
-        return ESP_OK;
-    }
-
-    if (!cfg->has_enroll_token || !cfg->enroll_token) {
-        return ESP_ERR_INVALID_STATE;
-    }
-
-    err = mqtt_receiver_bootstrap_activate(cfg);
-    if (err != ESP_OK) {
-        return err;
-    }
-
-    err = load_runtime_config(cfg);
-    if (err != ESP_OK) {
-        return err;
-    }
-
-    if (!cfg->has_public_id || !cfg->public_id || !cfg->has_op_state) {
-        return ESP_FAIL;
-    }
-
-    return mqtt_receiver_restart_with_public_id(cfg);
-}
-
-static esp_err_t subscribe_command_topics(const device_config_t *cfg)
-{
-    if (!cfg->has_public_id || !cfg->public_id) {
-        return ESP_ERR_INVALID_STATE;
-    }
-
-    return mqtt_receiver_subscribe_commands(cfg->public_id);
-}
-
-static void enter_operational_state(const device_config_t *cfg)
-{
-    if (cfg->op_state == RECEIVER_OP_STATE_ACTIVE) {
-        ESP_ERROR_CHECK(rf_sup_start());
-    } else if (cfg->op_state == RECEIVER_OP_STATE_DECOMMISSIONED) {
-        rf_sup_delete();
-    }
-}
-
-static void run_serial_provisioning(device_config_t *cfg, const char *reason)
-{
-    ESP_LOGW(MAIN_TAG, "Entering serial provisioning: %s", reason);
-    serial_prov_result_t result = serial_protocol_run_blocking(cfg, reason);
-    if (result == SERIAL_PROV_RESULT_RESET) {
-        device_config_erase_runtime();
-    }
-    restart_after_response_flush();
-}
+RFHandler g_rf = { .rx_active = false, .rx_suspended = false, .rx_gpio = RF_GPIO_UNASSIGNED };
+static device_config_t g_cfg = { .paired = false };
+static VibratorHandler g_vibrator = { .vibrator_task_handle = NULL, .state_lock = NULL };
 
 void app_main(void)
 {
-    device_config_t cfg;
-    esp_err_t err;
+    ESP_ERROR_CHECK(nvs_init_or_recover());
+    ESP_ERROR_CHECK(device_config_load(&g_cfg));
+    ESP_ERROR_CHECK(vibrator_init((gpio_num_t)CONFIG_RECEIVER_VIBRATOR_GPIO, &g_vibrator));
 
-    ESP_LOGI(MAIN_TAG, "receiver-8266 %s starting", PROJECT_VER);
-
-    device_config_init(&cfg);
-    ESP_ERROR_CHECK(init_platform_once());
-    ESP_ERROR_CHECK(serial_protocol_init());
-    ESP_LOGI(MAIN_TAG, "Serial provisioning initialized");
-    ESP_LOGI(MAIN_TAG, "Platform init complete");
-
-    for (;;) {
-        err = load_runtime_config(&cfg);
-        ESP_ERROR_CHECK(err);
-        ESP_LOGI(MAIN_TAG, "Config state: %s", device_config_state_name(&cfg));
-
-        restore_rf_snapshot(&cfg);
-
-        if (!device_config_is_provisioned(&cfg)) {
-            ESP_LOGW(MAIN_TAG, "Not provisioned, entering serial provisioning");
-            run_serial_provisioning(&cfg, "UNPROVISIONED");
-            device_config_free(&cfg);
-            continue;
-        }
-
-        if (device_config_is_recovery_required(&cfg)) {
-            ESP_LOGW(MAIN_TAG, "Recovery required (missing enroll token)");
-            run_serial_provisioning(&cfg, "MISSING_ENROLL_TOKEN");
-            device_config_free(&cfg);
-            continue;
-        }
-
-        ESP_LOGI(MAIN_TAG, "Connecting to WiFi SSID: %s", cfg.wifi_ssid ? cfg.wifi_ssid : "?");
-        if (attempt_wifi_stage(&cfg) != ESP_OK) {
-            ESP_LOGE(MAIN_TAG, "WiFi connection failed");
-            run_serial_provisioning(&cfg, "WIFI_FAILED");
-            device_config_free(&cfg);
-            continue;
-        }
-        ESP_LOGI(MAIN_TAG, "WiFi connected");
-
-        ESP_LOGI(MAIN_TAG, "Starting MQTT to %s", cfg.mqtt_uri ? cfg.mqtt_uri : "?");
-        if (attempt_mqtt_stage(&cfg) != ESP_OK) {
-            ESP_LOGE(MAIN_TAG, "MQTT connection failed");
-            run_serial_provisioning(&cfg, "MQTT_FAILED");
-            device_config_free(&cfg);
-            continue;
-        }
-        ESP_LOGI(MAIN_TAG, "MQTT connected");
-
-        ESP_LOGI(MAIN_TAG, "Activation stage");
-        err = attempt_activation_stage(&cfg);
-        if (err == ESP_ERR_INVALID_STATE) {
-            ESP_LOGW(MAIN_TAG, "Missing enroll token for activation");
-            run_serial_provisioning(&cfg, "MISSING_ENROLL_TOKEN");
-            device_config_free(&cfg);
-            continue;
-        }
-        if (err != ESP_OK) {
-            ESP_LOGE(MAIN_TAG, "Bootstrap activation failed: %s", esp_err_to_name(err));
-            run_serial_provisioning(&cfg, "BOOTSTRAP_FAILED");
-            device_config_free(&cfg);
-            continue;
-        }
-
-        ESP_LOGI(MAIN_TAG, "Subscribing to command topics");
-        if (subscribe_command_topics(&cfg) != ESP_OK) {
-            ESP_LOGE(MAIN_TAG, "Command topic subscription failed");
-            run_serial_provisioning(&cfg, "MQTT_FAILED");
-            device_config_free(&cfg);
-            continue;
-        }
-
-        ESP_LOGI(MAIN_TAG, "Entering operational state: %s", device_config_state_name(&cfg));
-        enter_operational_state(&cfg);
-        device_config_free(&cfg);
-        break;
+    if (!g_cfg.paired) {
+        ESP_LOGI(TAG, "Not paired, entering ESP-NOW pair mode");
+        vibrator_pulse(&g_vibrator);
+        vTaskDelay(pdMS_TO_TICKS(500));
+        ESP_ERROR_CHECK(espnow_pair_wait(&g_cfg));
+        ESP_LOGI(TAG, "Paired successfully");
     }
 
-    ESP_LOGI(MAIN_TAG, "Operational, idle loop running");
+    ESP_ERROR_CHECK(rf_trigger_init(&g_vibrator));
+    rf_recv_set_frame_callback(rf_trigger_on_frame, NULL);
+    rf_trigger_stop_output();
+
+    if (g_cfg.paired && g_cfg.rf_code_bits > 0) {
+        rf_trigger_restore(g_cfg.rf_code, g_cfg.rf_code_bits, 1);
+    }
+
+    ESP_ERROR_CHECK(rf_sup_start());
+    ESP_LOGI(TAG, "433 MHz listener started, waiting for triggers");
+
     for (;;) {
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
