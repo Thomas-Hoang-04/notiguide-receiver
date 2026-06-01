@@ -67,7 +67,7 @@ esp_err_t rf_trigger_deinit(void)
         return ESP_OK;
     }
 
-    ESP_RETURN_ON_ERROR(vibrator_deinit(&s_vibrator), RF_TRIGGER_TAG,
+    ESP_RETURN_ON_ERROR(vibrator_deinit(&s_vibrator, VIBRATOR_DEINIT_HOLD_OFF), RF_TRIGGER_TAG,
                         "failed to deinitialize vibrator");
     if (s_mutex != NULL) {
         vSemaphoreDelete(s_mutex);

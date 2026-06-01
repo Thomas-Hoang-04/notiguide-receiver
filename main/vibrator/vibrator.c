@@ -193,7 +193,7 @@ esp_err_t vibrator_set_pulsing(VibratorHandler* vibrator_handler, bool enabled)
     return ESP_OK;
 }
 
-esp_err_t vibrator_deinit(VibratorHandler* vibrator_handler)
+esp_err_t vibrator_deinit(VibratorHandler* vibrator_handler, VibratorDeinitMode mode)
 {
     ESP_RETURN_ON_FALSE(vibrator_handler, ESP_ERR_INVALID_ARG, VIBRATOR_TAG, "Invalid vibrator handler");
     ESP_RETURN_ON_FALSE(vibrator_lock(vibrator_handler), ESP_ERR_INVALID_STATE, VIBRATOR_TAG, "Failed to lock state");
@@ -211,12 +211,15 @@ esp_err_t vibrator_deinit(VibratorHandler* vibrator_handler)
     vibrator_handler->vibrator_task_handle = NULL;
     SemaphoreHandle_t state_lock = vibrator_handler->state_lock;
 
+    ESP_ERROR_CHECK(gpio_set_level(gpio, VIBRATOR_OFF));
     if (task_handle) {
         vTaskDelete(task_handle);
     }
     vibrator_handler->state_lock = NULL;
     xSemaphoreGive(state_lock);
-    ESP_ERROR_CHECK(gpio_reset_pin(gpio));
+    if (mode == VIBRATOR_DEINIT_RESET_PIN) {
+        ESP_ERROR_CHECK(gpio_reset_pin(gpio));
+    }
     if (state_lock) {
         vSemaphoreDelete(state_lock);
     }

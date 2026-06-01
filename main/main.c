@@ -30,7 +30,7 @@ void app_main(void)
         if (vibrator_init((gpio_num_t)CONFIG_RECEIVER_VIBRATOR_GPIO, &pair_vib) == ESP_OK) {
             vibrator_pulse(&pair_vib);
             vTaskDelay(pdMS_TO_TICKS(500));
-            vibrator_deinit(&pair_vib);
+            vibrator_deinit(&pair_vib, VIBRATOR_DEINIT_HOLD_OFF);
         }
 
         ESP_ERROR_CHECK(espnow_pair_wait(&g_cfg));

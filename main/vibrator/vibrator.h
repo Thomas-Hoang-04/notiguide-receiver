@@ -31,6 +31,11 @@ typedef struct {
     SemaphoreHandle_t state_lock;     // Serializes task and public API state changes
 } VibratorHandler;
 
+typedef enum {
+    VIBRATOR_DEINIT_HOLD_OFF = 0,     // Keep GPIO configured output-low
+    VIBRATOR_DEINIT_RESET_PIN,        // Force low, then release GPIO to reset state
+} VibratorDeinitMode;
+
 /**
  * @brief Initialize the vibrator GPIO and worker task.
  *
@@ -44,9 +49,10 @@ esp_err_t vibrator_init(gpio_num_t vibrator_gpio, VibratorHandler* vibrator_hand
  * @brief Deinitialize the vibrator GPIO and worker task.
  *
  * @param vibrator_handler Vibrator handler structure
+ * @param mode Whether to keep GPIO output-low or reset/release the pin
  * @return ESP_OK on success, error code otherwise
  */
-esp_err_t vibrator_deinit(VibratorHandler* vibrator_handler);
+esp_err_t vibrator_deinit(VibratorHandler* vibrator_handler, VibratorDeinitMode mode);
 
 /**
  * @brief Drive the vibrator output high immediately.
