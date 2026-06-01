@@ -98,6 +98,9 @@ static uint8_t s_hub_mac[6];
 static uint8_t s_nonce[NONCE_LEN];
 static pair_offer_t s_offer;
 static volatile bool s_waiting_for_saved_send;
+static const uint8_t s_broadcast_mac[ESP_NOW_ETH_ALEN] = {
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+};
 
 static int hex_value(char c)
 {
@@ -233,17 +236,14 @@ static void wifi_deinit_all(void)
 
 static esp_err_t add_broadcast_peer(void)
 {
-    static const uint8_t broadcast_mac[6] = {
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-    };
     esp_now_peer_info_t peer;
 
-    if (esp_now_is_peer_exist(broadcast_mac)) {
+    if (esp_now_is_peer_exist(s_broadcast_mac)) {
         return ESP_OK;
     }
 
     memset(&peer, 0, sizeof(peer));
-    memcpy(peer.peer_addr, broadcast_mac, sizeof(peer.peer_addr));
+    memcpy(peer.peer_addr, s_broadcast_mac, sizeof(peer.peer_addr));
     peer.channel = 0;
     peer.ifidx = WIFI_IF_STA;
     peer.encrypt = false;
@@ -396,7 +396,8 @@ esp_err_t espnow_pair_wait(device_config_t *cfg)
                 continue;
             }
 
-            err = esp_now_send(NULL, (const uint8_t *)&request, sizeof(request));
+            err = esp_now_send(s_broadcast_mac, (const uint8_t *)&request,
+                               sizeof(request));
             if (err != ESP_OK) {
                 ESP_LOGW(TAG, "PAIR_REQUEST send failed on ch=%u: %s",
                          channel, esp_err_to_name(err));
