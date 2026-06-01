@@ -91,6 +91,9 @@ typedef struct __attribute__((packed)) {
 
 static EventGroupHandle_t s_pair_events;
 static esp_netif_t *s_pair_netif;
+static const uint8_t s_broadcast_mac[ESP_NOW_ETH_ALEN] = {
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+};
 static uint8_t s_hub_mac[ESP_NOW_ETH_ALEN];
 static uint8_t s_nonce[NONCE_LEN];
 static pair_offer_t s_offer;
@@ -267,7 +270,7 @@ static void wifi_deinit_all(void)
 static esp_err_t add_broadcast_peer(void)
 {
     esp_now_peer_info_t peer = { 0 };
-    memset(peer.peer_addr, 0xFF, ESP_NOW_ETH_ALEN);
+    memcpy(peer.peer_addr, s_broadcast_mac, ESP_NOW_ETH_ALEN);
     peer.channel = 0;
     peer.ifidx = WIFI_IF_STA;
     peer.encrypt = false;
@@ -335,7 +338,6 @@ esp_err_t espnow_pair_wait(device_config_t *cfg)
 
     for (;;) {
         for (uint8_t ch = WIFI_CHANNEL_MIN; ch <= WIFI_CHANNEL_MAX; ch++) {
-            bool hub_peer_added = false;
             xEventGroupClearBits(s_pair_events,
                                  PAIR_BIT_CHALLENGE | PAIR_BIT_OFFER | PAIR_BIT_CONFIRM);
             ret = esp_wifi_set_channel(ch, WIFI_SECOND_CHAN_NONE);
@@ -343,7 +345,7 @@ esp_err_t espnow_pair_wait(device_config_t *cfg)
                 ESP_LOGW(TAG, "channel %u set failed: %s", ch, esp_err_to_name(ret));
                 continue;
             }
-            esp_err_t send_err = esp_now_send(NULL, (const uint8_t *)&req, sizeof(req));
+            esp_err_t send_err = esp_now_send(s_broadcast_mac, (const uint8_t *)&req, sizeof(req));
             if (send_err != ESP_OK) {
                 ESP_LOGW(TAG, "PAIR_REQUEST send failed on ch=%u: %s",
                          ch, esp_err_to_name(send_err));
@@ -363,16 +365,13 @@ esp_err_t espnow_pair_wait(device_config_t *cfg)
 
             ESP_GOTO_ON_ERROR(add_hub_peer(s_hub_mac, &psk[ESPNOW_CCM_KEY_LEN]),
                               cleanup, TAG, "add hub peer");
-            hub_peer_added = true;
 
             xEventGroupClearBits(s_pair_events, PAIR_BIT_OFFER | PAIR_BIT_CONFIRM);
 
             uint8_t hmac[HMAC_LEN] = { 0 };
             if (compute_hmac(s_nonce, NONCE_LEN, psk, PSK_LEN, hmac) != ESP_OK) {
                 ESP_LOGE(TAG, "HMAC computation failed");
-                if (hub_peer_added) {
-                    (void)esp_now_del_peer(s_hub_mac);
-                }
+                (void)esp_now_del_peer(s_hub_mac);
                 continue;
             }
 
@@ -381,9 +380,7 @@ esp_err_t espnow_pair_wait(device_config_t *cfg)
             send_err = esp_now_send(s_hub_mac, (const uint8_t *)&resp, sizeof(resp));
             if (send_err != ESP_OK) {
                 ESP_LOGW(TAG, "PAIR_RESPONSE send failed: %s", esp_err_to_name(send_err));
-                if (hub_peer_added) {
-                    (void)esp_now_del_peer(s_hub_mac);
-                }
+                (void)esp_now_del_peer(s_hub_mac);
                 continue;
             }
 
@@ -393,18 +390,14 @@ esp_err_t espnow_pair_wait(device_config_t *cfg)
 
             if ((bits & PAIR_BIT_OFFER) == 0) {
                 ESP_LOGW(TAG, "No PAIR_OFFER within %u ms, resuming scan", OFFER_TIMEOUT_MS);
-                if (hub_peer_added) {
-                    (void)esp_now_del_peer(s_hub_mac);
-                }
+                (void)esp_now_del_peer(s_hub_mac);
                 continue;
             }
 
             if (!offer_is_valid(&s_offer)) {
                 ESP_LOGW(TAG, "Invalid offer: slot=%u band=%u len=%u bits=%u",
                          s_offer.slot, s_offer.rf_band, s_offer.rf_code_len, s_offer.rf_bits);
-                if (hub_peer_added) {
-                    (void)esp_now_del_peer(s_hub_mac);
-                }
+                (void)esp_now_del_peer(s_hub_mac);
                 continue;
             }
 
@@ -417,9 +410,7 @@ esp_err_t espnow_pair_wait(device_config_t *cfg)
             send_err = esp_now_send(s_hub_mac, (const uint8_t *)&ack, sizeof(ack));
             if (send_err != ESP_OK) {
                 ESP_LOGW(TAG, "PAIR_ACK send failed: %s", esp_err_to_name(send_err));
-                if (hub_peer_added) {
-                    (void)esp_now_del_peer(s_hub_mac);
-                }
+                (void)esp_now_del_peer(s_hub_mac);
                 continue;
             }
 
@@ -430,9 +421,7 @@ esp_err_t espnow_pair_wait(device_config_t *cfg)
             if ((bits & PAIR_BIT_CONFIRM) == 0) {
                 ESP_LOGW(TAG, "No PAIR_CONFIRM within %u ms, resuming scan without saving",
                          CONFIRM_TIMEOUT_MS);
-                if (hub_peer_added) {
-                    (void)esp_now_del_peer(s_hub_mac);
-                }
+                (void)esp_now_del_peer(s_hub_mac);
                 continue;
             }
 
