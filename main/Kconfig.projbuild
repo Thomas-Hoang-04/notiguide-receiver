@@ -14,27 +14,27 @@ endchoice
 
 config RECEIVER_RF433_RX_GPIO
     int "433 MHz RX GPIO"
-    default 4
+    default 0
     depends on RECEIVER_RADIO_433M
 
 config RECEIVER_NRF24_SCK
     int "nRF24 SCK GPIO"
-    default 6
+    default 4
     depends on RECEIVER_RADIO_2_4G
 
 config RECEIVER_NRF24_MOSI
     int "nRF24 MOSI GPIO"
-    default 7
+    default 6
     depends on RECEIVER_RADIO_2_4G
 
 config RECEIVER_NRF24_MISO
     int "nRF24 MISO GPIO"
-    default 2
+    default 5
     depends on RECEIVER_RADIO_2_4G
 
 config RECEIVER_NRF24_CS
     int "nRF24 CS GPIO"
-    default 5
+    default 7
     depends on RECEIVER_RADIO_2_4G
 
 config RECEIVER_NRF24_CE
