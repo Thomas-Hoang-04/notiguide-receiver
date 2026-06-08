@@ -46,6 +46,11 @@ typedef struct {
     SemaphoreHandle_t state_lock;      // Serializes task and public API state changes
 } VibratorHandler;
 
+typedef enum {
+    VIBRATOR_DEINIT_HOLD_OFF,
+    VIBRATOR_DEINIT_RESET_PIN,
+} vibrator_deinit_mode_t;
+
 /**
  * @brief Initialize the vibrator module
  * 
@@ -63,9 +68,10 @@ esp_err_t vibrator_init(gpio_num_t vibrator_gpio, VibratorHandler* vibrator_hand
  * This function deinitializes the vibrator module.
  * 
  * @param vibrator_handler Vibrator handler structure
+ * @param mode Whether to hold the GPIO off or release/reset it after deinit
  * @return ESP_OK on success, error code otherwise
  */
-esp_err_t vibrator_deinit(VibratorHandler* vibrator_handler);
+esp_err_t vibrator_deinit(VibratorHandler* vibrator_handler, vibrator_deinit_mode_t mode);
 
 /**
  * @brief Start the vibrator module

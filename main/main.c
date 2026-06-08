@@ -28,16 +28,19 @@ void app_main(void)
 {
     ESP_ERROR_CHECK(nvs_init_or_recover());
     ESP_ERROR_CHECK(device_config_load(&g_cfg));
-    ESP_ERROR_CHECK(vibrator_init((gpio_num_t)CONFIG_RECEIVER_VIBRATOR_GPIO, &g_vibrator));
 
     if (!g_cfg.paired) {
         ESP_LOGI(TAG, "Not paired, entering ESP-NOW pair mode");
-        vibrator_pulse(&g_vibrator);
+        ESP_ERROR_CHECK(vibrator_init((gpio_num_t)CONFIG_RECEIVER_VIBRATOR_GPIO, &g_vibrator));
+        esp_err_t pulse_err = vibrator_pulse(&g_vibrator);
         vTaskDelay(pdMS_TO_TICKS(500));
+        ESP_ERROR_CHECK(vibrator_deinit(&g_vibrator, VIBRATOR_DEINIT_HOLD_OFF));
+        ESP_ERROR_CHECK(pulse_err);
         ESP_ERROR_CHECK(espnow_pair_wait(&g_cfg));
         ESP_LOGI(TAG, "Paired successfully");
     }
 
+    ESP_ERROR_CHECK(vibrator_init((gpio_num_t)CONFIG_RECEIVER_VIBRATOR_GPIO, &g_vibrator));
     ESP_ERROR_CHECK(rf_trigger_init(&g_vibrator));
     rf_recv_set_frame_callback(rf_trigger_on_frame, NULL);
     rf_trigger_stop_output();

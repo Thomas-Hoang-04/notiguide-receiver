@@ -191,9 +191,11 @@ esp_err_t vibrator_set_pulsing(VibratorHandler* vibrator_handler, bool enabled)
     return ESP_OK;
 }
 
-esp_err_t vibrator_deinit(VibratorHandler* vibrator_handler)
+esp_err_t vibrator_deinit(VibratorHandler* vibrator_handler, vibrator_deinit_mode_t mode)
 {
     ESP_RETURN_ON_FALSE(vibrator_handler, ESP_ERR_INVALID_ARG, VIBRATOR_TAG, "Invalid vibrator handler");
+    ESP_RETURN_ON_FALSE(mode == VIBRATOR_DEINIT_HOLD_OFF || mode == VIBRATOR_DEINIT_RESET_PIN,
+                        ESP_ERR_INVALID_ARG, VIBRATOR_TAG, "Invalid deinit mode");
     ESP_RETURN_ON_FALSE(vibrator_lock(vibrator_handler), ESP_ERR_INVALID_STATE, VIBRATOR_TAG, "Failed to lock state");
     if (!vibrator_handler->vibrator_initialized) {
         vibrator_unlock(vibrator_handler);
@@ -209,23 +211,50 @@ esp_err_t vibrator_deinit(VibratorHandler* vibrator_handler)
     vibrator_handler->vibrator_task_handle = NULL;
     SemaphoreHandle_t state_lock = vibrator_handler->state_lock;
 
+    esp_err_t err = gpio_set_level(gpio, VIBRATOR_OFF);
+    if (err != ESP_OK) {
+        ESP_LOGE(VIBRATOR_TAG, "Failed to force vibrator GPIO off: %s", esp_err_to_name(err));
+    }
+
     if (task_handle) {
         vTaskDelete(task_handle);
     }
     vibrator_handler->state_lock = NULL;
     xSemaphoreGive(state_lock);
 
-    gpio_config_t io_conf = {
+    gpio_config_t io_conf_hold_off = {
+        .pin_bit_mask = (1ULL << gpio),
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    gpio_config_t io_conf_reset = {
         .pin_bit_mask = (1ULL << gpio),
         .mode = GPIO_MODE_DISABLE,
         .pull_up_en = GPIO_PULLUP_DISABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
         .intr_type = GPIO_INTR_DISABLE,
     };
-    ESP_ERROR_CHECK(gpio_config(&io_conf));
+
+    if (err == ESP_OK) {
+        if (mode == VIBRATOR_DEINIT_HOLD_OFF) {
+            err = gpio_config(&io_conf_hold_off);
+            if (err == ESP_OK) {
+                err = gpio_set_level(gpio, VIBRATOR_OFF);
+            }
+        } else {
+            err = gpio_config(&io_conf_reset);
+        }
+    }
 
     if (state_lock) {
         vSemaphoreDelete(state_lock);
+    }
+
+    if (err != ESP_OK) {
+        ESP_LOGE(VIBRATOR_TAG, "Vibrator GPIO deinit failed: %s", esp_err_to_name(err));
+        return err;
     }
 
     ESP_LOGI(VIBRATOR_TAG, "Vibrator deinitialized");
